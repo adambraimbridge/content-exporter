@@ -65,7 +65,7 @@ func main() {
 	}
 
 	app.Action = func() {
-		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
+		log.Infof("System code: %s, App Name: %s, Port: %s, Mongo connection: %s", *appSystemCode, *appName, *port, *mongos)
 		mongo := service.NewMongoDatabase(*mongos, 10)
 		go func() {
 			serveEndpoints(*appSystemCode, *appName, *port, requestHandler{&service.MongoInquirer{mongo}})
