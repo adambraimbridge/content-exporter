@@ -35,6 +35,7 @@ func (handler *requestHandler) export(writer http.ResponseWriter, request *http.
 
 	bw := bufio.NewWriter(writer)
 	for {
+		//TODO call enrichedcontent for every id
 		docID, ok := <-ids
 		if !ok {
 			break

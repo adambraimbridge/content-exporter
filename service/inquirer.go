@@ -19,10 +19,8 @@ func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan st
 	if err != nil {
 		return nil, err
 	}
-	log.Info("Mongo is opened: %+v", tx)
 	iter, length, err := tx.FindUUIDs(collection, 0, 32)
 	if err != nil {
-		log.Infof("Error in find uuids: %v", err)
 		tx.Close()
 		return  nil, err
 	}

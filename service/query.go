@@ -9,5 +9,11 @@ var uuidProjection = bson.M{
 }
 
 func findUUIDsQueryElements() (bson.M, bson.M) {
-	return bson.M{"canBeSyndicated": "yes"}, uuidProjection
+	return bson.M{
+		"$or": []bson.M{
+			{"type": "Article"},
+			{"body": bson.M{"$ne": nil}},
+			{"realtime": true},
+		},
+	}, uuidProjection
 }
