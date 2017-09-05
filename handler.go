@@ -18,7 +18,7 @@ type requestHandler struct {
 func (handler *requestHandler) export(writer http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	ids, err := handler.inquirer.Inquire(ctx, "content")
