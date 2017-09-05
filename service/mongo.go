@@ -74,6 +74,7 @@ func (db *MongoDB) Open() (TX, error) {
 // FindUUIDs returns all uuids for a collection sorted by lastodified date, if no lastmodified exists records are returned at the end of the list
 func (tx *MongoTX) FindUUIDs(collectionID string, skip int, batchsize int) (DBIter, int, error) {
 	collection := tx.session.DB("upp-store").C(collectionID)
+	log.Infof("Collection: %v", collection)
 
 	query, projection := findUUIDsQueryElements()
 	find := collection.Find(query).Select(projection).Sort(sortByDate).Batch(batchsize)

@@ -9,5 +9,5 @@ var uuidProjection = bson.M{
 }
 
 func findUUIDsQueryElements() (bson.M, bson.M) {
-	return bson.M{"body": bson.M{"$ne": "null"}}, uuidProjection
+	return bson.M{"body": ""}, uuidProjection
 }
