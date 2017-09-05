@@ -59,7 +59,7 @@ func (db *MongoDB) Open() (TX, error) {
 			log.WithError(err).Error("Session error")
 			return nil, err
 		}
-
+		session.SetSocketTimeout(10 * time.Minute)
 		db.session = session
 		connections++
 
