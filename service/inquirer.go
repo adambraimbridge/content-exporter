@@ -20,18 +20,21 @@ func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan st
 		return nil, err
 	}
 	log.Info("Mongo is opened: %+v", tx)
+	iter, length, err := tx.FindUUIDs(collection, 0, 32)
+	if err != nil {
+		log.Infof("Error in find uuids: %v", err)
+		tx.Close()
+		return  nil, err
+	}
+	log.Infof("Nr of UUIDs found: %v", length)
 	ids := make(chan string, 8)
 
 	go func() {
-		iter, length, err := tx.FindUUIDs(collection, 0, 100)
+
 		defer tx.Close()
 		defer iter.Close()
 		defer close(ids)
-		if err != nil {
-			log.Infof("Error in find uuids: %v", err)
-			return
-		}
-		log.Infof("Nr of UUIDs found: %v", length)
+
 
 		var result map[string]interface{}
 

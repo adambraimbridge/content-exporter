@@ -77,7 +77,7 @@ func (tx *MongoTX) FindUUIDs(collectionID string, skip int, batchsize int) (DBIt
 	log.Infof("Collection: %v", collection)
 
 	query, projection := findUUIDsQueryElements()
-	find := collection.Find(query).Select(projection).Sort(sortByDate).Batch(batchsize)
+	find := collection.Find(query).Select(projection).Batch(batchsize)
 
 	if skip > 0 {
 		find.Skip(skip)
