@@ -1,4 +1,4 @@
-package export
+package content
 
 import (
 	"net/http"
@@ -7,16 +7,16 @@ import (
 )
 
 type Exporter interface {
-	GetEnrichedContent(uuid, tid string) (map[string]interface{}, error)
+	GetContent(uuid, tid string) (map[string]interface{}, error)
 }
 
-type ContentExporter struct {
-	Client *http.Client
-	AppURL string
+type EnrichedContentExporter struct {
+	Client             *http.Client
+	EnrichedContentURL string
 }
 
-func (e *ContentExporter) GetEnrichedContent(uuid, tid string) (map[string]interface{}, error) {
-	req, err := http.NewRequest("GET", e.AppURL+ uuid, nil)
+func (e *EnrichedContentExporter) GetContent(uuid, tid string) (map[string]interface{}, error) {
+	req, err := http.NewRequest("GET", e.EnrichedContentURL+ uuid, nil)
 	if err != nil {
 		return nil, err
 	}

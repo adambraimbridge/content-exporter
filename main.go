@@ -20,7 +20,7 @@ import (
 	"strings"
 	"net"
 	"fmt"
-	"github.com/Financial-Times/content-exporter/export"
+	"github.com/Financial-Times/content-exporter/content"
 	"time"
 )
 
@@ -59,6 +59,12 @@ func main() {
 		Desc:   "URL to enriched content endpoint",
 		EnvVar: "ENRICHED_CONTENT_URL",
 	})
+	s3WriterURL := app.String(cli.StringOpt{
+		Name:   "s3WriterURL",
+		Value:  "http://localhost:8080/content/",
+		Desc:   "URL to S3 writer endpoint",
+		EnvVar: "S3_WRITER_URL",
+	})
 
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] content-exporter is starting ")
@@ -87,7 +93,11 @@ func main() {
 		}
 
 		go func() {
-			serveEndpoints(*appSystemCode, *appName, *port, requestHandler{&db.MongoInquirer{mongo}, &export.ContentExporter{c, *enrichedContentURL}})
+			serveEndpoints(*appSystemCode, *appName, *port, requestHandler{
+				&db.MongoInquirer{mongo},
+				&content.EnrichedContentExporter{c, *enrichedContentURL},
+				&content.S3Uploader{c, *s3WriterURL},
+			})
 		}()
 
 		waitForSignal()

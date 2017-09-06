@@ -8,13 +8,14 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"net/http"
 	"time"
-	"github.com/Financial-Times/content-exporter/export"
+	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/transactionid-utils-go"
 )
 
 type requestHandler struct {
 	inquirer db.Inquirer
-	exporter export.Exporter
+	exporter content.Exporter
+	uploader content.Uploader
 }
 
 func (handler *requestHandler) export(writer http.ResponseWriter, request *http.Request) {
@@ -40,11 +41,11 @@ func (handler *requestHandler) export(writer http.ResponseWriter, request *http.
 			break
 		}
 
-		payload, err := handler.exporter.GetEnrichedContent(doc.Uuid, tid)
+		payload, err := handler.exporter.GetContent(doc.Uuid, tid)
 
 		log.Infof("Error? [%v] This will be posted to generic-s3-writer: \n%v", err, payload)
 
-		bw.WriteString(string(doc.Uuid) + "?publishedDate=" + doc.Date + "\n")
+		bw.WriteString(handler.uploader.(content.S3Uploader).S3WriterURL + doc.Uuid + "?publishedDate=" + doc.Date + "\n")
 
 		bw.Flush()
 		writer.(http.Flusher).Flush()
