@@ -21,6 +21,7 @@ import (
 	"net"
 	"fmt"
 	"github.com/Financial-Times/content-exporter/export"
+	"time"
 )
 
 const appDescription = "Exports content from DB and sends to S3"
@@ -34,27 +35,31 @@ func main() {
 		Desc:   "System Code of the application",
 		EnvVar: "APP_SYSTEM_CODE",
 	})
-
 	appName := app.String(cli.StringOpt{
 		Name:   "app-name",
 		Value:  "content-exporter",
 		Desc:   "Application name",
 		EnvVar: "APP_NAME",
 	})
-
 	port := app.String(cli.StringOpt{
 		Name:   "port",
 		Value:  "8080",
 		Desc:   "Port to listen on",
 		EnvVar: "APP_PORT",
 	})
-
 	mongos := app.String(cli.StringOpt{
 		Name:   "mongoConnection",
 		Value:  "",
 		Desc:   "Mongo addresses to connect to in format: host1[:port1][,host2[:port2],...]",
 		EnvVar: "MONGO_CONNECTION",
 	})
+	enrichedContentURL := app.String(cli.StringOpt{
+		Name:   "enrichedContentURL",
+		Value:  "http://localhost:8080/enrichedcontent/",
+		Desc:   "URL to enriched content endpoint",
+		EnvVar: "ENRICHED_CONTENT_URL",
+	})
+
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] content-exporter is starting ")
 
@@ -68,8 +73,21 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s, Mongo connection: %s", *appSystemCode, *appName, *port, *mongos)
 		mongo := db.NewMongoDatabase(*mongos, 100)
+
+		tr := &http.Transport{
+			MaxIdleConnsPerHost: 128,
+			Dial: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).Dial,
+		}
+		c := &http.Client{
+			Transport: tr,
+			Timeout:   30 * time.Second,
+		}
+
 		go func() {
-			serveEndpoints(*appSystemCode, *appName, *port, requestHandler{&db.MongoInquirer{mongo}, &export.ContentExporter{}})
+			serveEndpoints(*appSystemCode, *appName, *port, requestHandler{&db.MongoInquirer{mongo}, &export.ContentExporter{c, *enrichedContentURL}})
 		}()
 
 		waitForSignal()
@@ -137,7 +155,7 @@ func checkMongoURLs(providedMongoUrls string) error {
 	mongoUrls := strings.Split(providedMongoUrls, ",")
 
 	for _, mongoUrl := range mongoUrls {
-		host, port, err := net.SplitHostPort(mongoUrl);
+		host, port, err := net.SplitHostPort(mongoUrl)
 		if err != nil {
 			return fmt.Errorf("Cannot split MongoDB URL: %s into host and port. Error is: %s",mongoUrl, err.Error())
 		}

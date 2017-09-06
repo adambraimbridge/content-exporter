@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const defaultDate = "0000-00-00"
+
 type Inquirer interface {
 	Inquire(ctx context.Context, collection string) (chan DBContent, error)
 }
@@ -59,7 +61,7 @@ func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan DB
 				date = strings.Split(docPublishedDate.(string), "T")[0]
 			}
 			if date == "" {
-				date = "0000-00-00"
+				date = defaultDate
 			}
 			docs <- DBContent{uuid,date}
 		}

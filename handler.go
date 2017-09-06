@@ -3,13 +3,13 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/Financial-Times/content-exporter/db"
 	log "github.com/Sirupsen/logrus"
 	"net/http"
 	"time"
 	"github.com/Financial-Times/content-exporter/export"
+	"github.com/Financial-Times/transactionid-utils-go"
 )
 
 type requestHandler struct {
@@ -19,6 +19,8 @@ type requestHandler struct {
 
 func (handler *requestHandler) export(writer http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
+
+	tid := transactionidutils.GetTransactionIDFromRequest(request)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -30,25 +32,19 @@ func (handler *requestHandler) export(writer http.ResponseWriter, request *http.
 		http.Error(writer, msg, http.StatusServiceUnavailable)
 		return
 	}
-
-	id := struct {
-		Payload map[string]interface{} `json:"payload"`
-	}{}
-
+	
 	bw := bufio.NewWriter(writer)
 	for {
-		//TODO call enrichedcontent for every id
 		doc, ok := <-docs
 		if !ok {
 			break
 		}
 
-		payload := handler.exporter.GetEnrichedContent(doc.Uuid)
+		payload, err := handler.exporter.GetEnrichedContent(doc.Uuid, tid)
 
-		id.Payload = payload
-		jd, _ := json.Marshal(id)
+		log.Infof("Error? [%v] This will be posted to generic-s3-writer: \n%v", err, payload)
 
-		bw.WriteString(string(jd) + "?publishedDate=" + doc.Date + "\n")
+		bw.WriteString(string(doc.Uuid) + "?publishedDate=" + doc.Date + "\n")
 
 		bw.Flush()
 		writer.(http.Flusher).Flush()
