@@ -13,13 +13,14 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rcrowley/go-metrics"
 
-	"github.com/Financial-Times/content-exporter/service"
+	"github.com/Financial-Times/content-exporter/db"
 	health "github.com/Financial-Times/go-fthealth/v1_1"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"errors"
 	"strings"
 	"net"
 	"fmt"
+	"github.com/Financial-Times/content-exporter/export"
 )
 
 const appDescription = "Exports content from DB and sends to S3"
@@ -66,9 +67,9 @@ func main() {
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s, Mongo connection: %s", *appSystemCode, *appName, *port, *mongos)
-		mongo := service.NewMongoDatabase(*mongos, 100)
+		mongo := db.NewMongoDatabase(*mongos, 100)
 		go func() {
-			serveEndpoints(*appSystemCode, *appName, *port, requestHandler{&service.MongoInquirer{mongo}})
+			serveEndpoints(*appSystemCode, *appName, *port, requestHandler{&db.MongoInquirer{mongo}, &export.ContentExporter{}})
 		}()
 
 		waitForSignal()

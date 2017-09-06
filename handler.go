@@ -5,14 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Financial-Times/content-exporter/service"
+	"github.com/Financial-Times/content-exporter/db"
 	log "github.com/Sirupsen/logrus"
 	"net/http"
 	"time"
+	"github.com/Financial-Times/content-exporter/export"
 )
 
 type requestHandler struct {
-	inquirer service.Inquirer
+	inquirer db.Inquirer
+	exporter export.Exporter
 }
 
 func (handler *requestHandler) export(writer http.ResponseWriter, request *http.Request) {
@@ -30,7 +32,7 @@ func (handler *requestHandler) export(writer http.ResponseWriter, request *http.
 	}
 
 	id := struct {
-		ID string `json:"id"`
+		Payload map[string]interface{} `json:"payload"`
 	}{}
 
 	bw := bufio.NewWriter(writer)
@@ -41,7 +43,9 @@ func (handler *requestHandler) export(writer http.ResponseWriter, request *http.
 			break
 		}
 
-		id.ID = docID
+		payload := handler.exporter.GetEnrichedContent(docID)
+
+		id.Payload = payload
 		jd, _ := json.Marshal(id)
 
 		bw.WriteString(string(jd) + "\n")

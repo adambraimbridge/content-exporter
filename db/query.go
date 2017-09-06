@@ -1,4 +1,4 @@
-package service
+package db
 
 import (
 	"gopkg.in/mgo.v2/bson"

@@ -1,4 +1,4 @@
-package service
+package db
 
 import (
 	"context"
@@ -76,7 +76,8 @@ func (tx *MongoTX) FindUUIDs(collectionID string, skip int, batchsize int) (DBIt
 	collection := tx.session.DB("upp-store").C(collectionID)
 
 	query, projection := findUUIDsQueryElements()
-	find := collection.Find(query).Select(projection).Batch(batchsize)
+	//TODO remove limit after testing is complete
+	find := collection.Find(query).Select(projection).Batch(batchsize).Limit(10)
 
 	if skip > 0 {
 		find.Skip(skip)

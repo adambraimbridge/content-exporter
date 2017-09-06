@@ -1,4 +1,4 @@
-package service
+package db
 
 import (
 	"context"
@@ -19,7 +19,7 @@ func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan st
 	if err != nil {
 		return nil, err
 	}
-	iter, length, err := tx.FindUUIDs(collection, 0, 32)
+	iter, length, err := tx.FindUUIDs(collection, 0, 100)
 	if err != nil {
 		tx.Close()
 		return  nil, err
