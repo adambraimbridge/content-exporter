@@ -3,17 +3,22 @@ package db
 import (
 	"context"
 	"github.com/coreos/fleet/log"
+	"strings"
 )
 
 type Inquirer interface {
-	Inquire(ctx context.Context, collection string) (chan string, error)
+	Inquire(ctx context.Context, collection string) (chan DBContent, error)
 }
 
 type MongoInquirer struct {
 	Mongo DB
 }
 
-func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan string, error) {
+type DBContent struct {
+	Uuid, Date string
+}
+
+func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan DBContent, error) {
 	tx, err := m.Mongo.Open()
 
 	if err != nil {
@@ -25,13 +30,13 @@ func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan st
 		return  nil, err
 	}
 	log.Infof("Nr of UUIDs found: %v", length)
-	ids := make(chan string, 8)
+	docs := make(chan DBContent, 8)
 
 	go func() {
 
 		defer tx.Close()
 		defer iter.Close()
-		defer close(ids)
+		defer close(docs)
 
 
 		var result map[string]interface{}
@@ -40,10 +45,25 @@ func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan st
 			if err := ctx.Err(); err != nil {
 				break
 			}
-
-			ids <- result["uuid"].(string)
+			var uuid, date string
+			docUUID,ok := result["uuid"]
+			if ok {
+				uuid = docUUID.(string)
+			}
+			docFirstPublishedDate,ok := result["firstPublishedDate"]
+			if ok {
+				date = strings.Split(docFirstPublishedDate.(string), "T")[0]
+			}
+			docPublishedDate,ok := result["publishedDate"]
+			if ok {
+				date = strings.Split(docPublishedDate.(string), "T")[0]
+			}
+			if date == "" {
+				date = "0000-00-00"
+			}
+			docs <- DBContent{uuid,date}
 		}
 	}()
 
-	return ids, nil
+	return docs, nil
 }

@@ -23,7 +23,7 @@ func (handler *requestHandler) export(writer http.ResponseWriter, request *http.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	ids, err := handler.inquirer.Inquire(ctx, "content")
+	docs, err := handler.inquirer.Inquire(ctx, "content")
 	if err != nil {
 		msg := fmt.Sprintf(`Failed to read IDs from mongo for %v! "%v"`, "content", err.Error())
 		log.Info(msg)
@@ -38,17 +38,17 @@ func (handler *requestHandler) export(writer http.ResponseWriter, request *http.
 	bw := bufio.NewWriter(writer)
 	for {
 		//TODO call enrichedcontent for every id
-		docID, ok := <-ids
+		doc, ok := <-docs
 		if !ok {
 			break
 		}
 
-		payload := handler.exporter.GetEnrichedContent(docID)
+		payload := handler.exporter.GetEnrichedContent(doc.Uuid)
 
 		id.Payload = payload
 		jd, _ := json.Marshal(id)
 
-		bw.WriteString(string(jd) + "\n")
+		bw.WriteString(string(jd) + "?publishedDate=" + doc.Date + "\n")
 
 		bw.Flush()
 		writer.(http.Flusher).Flush()
