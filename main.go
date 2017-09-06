@@ -61,7 +61,7 @@ func main() {
 	})
 	s3WriterURL := app.String(cli.StringOpt{
 		Name:   "s3WriterURL",
-		Value:  "http://localhost:8080/content/",
+		Value:  "http://localhost:8080//",
 		Desc:   "URL to S3 writer endpoint",
 		EnvVar: "S3_WRITER_URL",
 	})

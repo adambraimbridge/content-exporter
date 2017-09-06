@@ -45,7 +45,7 @@ func (handler *requestHandler) export(writer http.ResponseWriter, request *http.
 
 		log.Infof("Error? [%v] This will be posted to generic-s3-writer: \n%v", err, payload)
 
-		bw.WriteString(handler.uploader.(content.S3Uploader).S3WriterURL + doc.Uuid + "?publishedDate=" + doc.Date + "\n")
+		bw.WriteString(handler.uploader.(*content.S3Uploader).S3WriterURL + doc.Uuid + "?publishedDate=" + doc.Date + "\n")
 
 		bw.Flush()
 		writer.(http.Flusher).Flush()
