@@ -30,7 +30,7 @@ func (e *EnrichedContentExporter) GetContent(uuid, tid string) (map[string]inter
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 && resp.StatusCode >= 300 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("EnrichedContent returned HTTP %v", resp.StatusCode)
 	}
 

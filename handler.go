@@ -40,15 +40,22 @@ func (handler *requestHandler) export(writer http.ResponseWriter, request *http.
 		if !ok {
 			break
 		}
-
-		payload, err := handler.exporter.GetContent(doc.Uuid, tid)
-
-		log.Infof("Error? [%v] This will be posted to generic-s3-writer: \n%v", err, payload)
-
-		bw.WriteString(handler.uploader.(*content.S3Uploader).S3WriterURL + doc.Uuid + "?publishedDate=" + doc.Date + "\n")
-
+		bw.WriteString("DEBUG: " + handler.uploader.(*content.S3Uploader).S3WriterURL + doc.Uuid + "?date=" + doc.Date + "\n")
 		bw.Flush()
 		writer.(http.Flusher).Flush()
+
+		payload, err := handler.exporter.GetContent(doc.Uuid, tid)
+		if err != nil {
+			log.Errorf("Error by getting content: %v\n", err)
+			continue
+		}
+
+		err = handler.uploader.Upload(payload, tid, doc.Uuid, doc.Date)
+		if err != nil {
+			log.Errorf("Error by uploading content: %v\n", err)
+			continue
+		}
+
 	}
 
 }
