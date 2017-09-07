@@ -77,7 +77,7 @@ func (tx *MongoTX) FindUUIDs(collectionID string, skip int, batchsize int) (DBIt
 
 	query, projection := findUUIDsQueryElements()
 	//TODO remove limit after testing is complete
-	find := collection.Find(query).Select(projection).Batch(batchsize).Limit(10)
+	find := collection.Find(query).Select(projection).Batch(batchsize).Limit(500)
 
 	if skip > 0 {
 		find.Skip(skip)
