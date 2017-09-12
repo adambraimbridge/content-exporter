@@ -35,23 +35,27 @@ func (handler *requestHandler) export(writer http.ResponseWriter, request *http.
 	}
 	
 	bw := bufio.NewWriter(writer)
+	var failed []string
 	for {
 		doc, ok := <-docs
 		if !ok {
+			bw.WriteString(fmt.Sprintf("Failed uuids: %v\n", failed))
+			bw.Flush()
+			writer.(http.Flusher).Flush()
 			break
 		}
-		bw.WriteString("DEBUG: " + handler.uploader.(*content.S3Uploader).S3WriterURL + doc.Uuid + "?date=" + doc.Date + "\n")
-		bw.Flush()
-		writer.(http.Flusher).Flush()
+
 		//TODO implement some retry mechanism
 		payload, err := handler.exporter.GetContent(doc.Uuid, tid)
 		if err != nil {
+			failed = append(failed, doc.Uuid)
 			log.Errorf("Error by getting content for %v: %v\n", doc.Uuid, err)
 			continue
 		}
 
 		err = handler.uploader.Upload(payload, tid, doc.Uuid, doc.Date)
 		if err != nil {
+			failed = append(failed, doc.Uuid)
 			log.Errorf("Error by uploading content for %v: %v\n", doc.Uuid, err)
 			continue
 		}
