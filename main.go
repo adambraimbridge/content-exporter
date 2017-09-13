@@ -13,14 +13,16 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rcrowley/go-metrics"
 
-	"github.com/Financial-Times/content-exporter/db"
-	health "github.com/Financial-Times/go-fthealth/v1_1"
-	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"errors"
-	"strings"
-	"net"
 	"fmt"
 	"github.com/Financial-Times/content-exporter/content"
+	"github.com/Financial-Times/content-exporter/db"
+	"github.com/Financial-Times/content-exporter/service"
+	health "github.com/Financial-Times/go-fthealth/v1_1"
+	status "github.com/Financial-Times/service-status-go/httphandlers"
+	"github.com/sethgrid/pester"
+	"net"
+	"strings"
 	"time"
 )
 
@@ -91,12 +93,16 @@ func main() {
 			Transport: tr,
 			Timeout:   30 * time.Second,
 		}
+		client := pester.NewExtendedClient(c)
+		client.Backoff = pester.ExponentialBackoff
+		client.MaxRetries = 3
+		client.Concurrency = 1
 
 		go func() {
-			serveEndpoints(*appSystemCode, *appName, *port, requestHandler{
+			serveEndpoints(*appSystemCode, *appName, *port, service.RequestHandler{
 				&db.MongoInquirer{mongo},
-				&content.EnrichedContentExporter{c, *enrichedContentURL},
-				&content.S3Uploader{c, *s3WriterURL},
+				&content.EnrichedContentExporter{client, *enrichedContentURL},
+				&content.S3Uploader{client, *s3WriterURL},
 			})
 		}()
 
@@ -109,7 +115,7 @@ func main() {
 	}
 }
 
-func serveEndpoints(appSystemCode string, appName string, port string, requestHandler requestHandler) {
+func serveEndpoints(appSystemCode string, appName string, port string, requestHandler service.RequestHandler) {
 	healthService := newHealthService(&healthConfig{appSystemCode: appSystemCode, appName: appName, port: port})
 
 	serveMux := http.NewServeMux()
@@ -120,7 +126,7 @@ func serveEndpoints(appSystemCode string, appName string, port string, requestHa
 	serveMux.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 
 	servicesRouter := mux.NewRouter()
-	servicesRouter.HandleFunc("/export", requestHandler.export).Methods("GET")
+	servicesRouter.HandleFunc("/export", requestHandler.Export).Methods("GET")
 	//todo: add new handlers here
 
 	var monitoringRouter http.Handler = servicesRouter
@@ -167,7 +173,7 @@ func checkMongoURLs(providedMongoUrls string) error {
 	for _, mongoUrl := range mongoUrls {
 		host, port, err := net.SplitHostPort(mongoUrl)
 		if err != nil {
-			return fmt.Errorf("Cannot split MongoDB URL: %s into host and port. Error is: %s",mongoUrl, err.Error())
+			return fmt.Errorf("Cannot split MongoDB URL: %s into host and port. Error is: %s", mongoUrl, err.Error())
 		}
 		if host == "" || port == "" {
 			return fmt.Errorf("One of the MongoDB URLs is incomplete: %s. It should have host and port.", mongoUrl)

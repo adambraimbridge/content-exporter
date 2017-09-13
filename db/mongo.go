@@ -12,8 +12,6 @@ import (
 var expectedConnections = 1
 var connections = 0
 
-const sortByDate = "-content.lastModified"
-
 type Content struct {
 	Body        map[string]interface{} `bson:"content"`
 	ContentType string                 `bson:"content-type"`
@@ -77,7 +75,7 @@ func (tx *MongoTX) FindUUIDs(collectionID string, skip int, batchsize int) (DBIt
 
 	query, projection := findUUIDsQueryElements()
 	//TODO remove limit after testing is complete
-	find := collection.Find(query).Select(projection).Batch(batchsize).Limit(500)
+	find := collection.Find(query).Select(projection).Batch(batchsize)
 
 	if skip > 0 {
 		find.Skip(skip)

@@ -5,9 +5,9 @@ import (
 )
 
 var uuidProjection = bson.M{
-	"uuid": 1,
+	"uuid":               1,
 	"firstPublishedDate": 1,
-	"publishedDate": 1,
+	"publishedDate":      1,
 }
 
 func findUUIDsQueryElements() (bson.M, bson.M) {

@@ -1,10 +1,10 @@
 package content
 
 import (
-	"net/http"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 )
 
 type Uploader interface {
@@ -12,7 +12,7 @@ type Uploader interface {
 }
 
 type S3Uploader struct {
-	Client             *http.Client
+	Client      HttpClient
 	S3WriterURL string
 }
 
@@ -23,7 +23,7 @@ func (u *S3Uploader) Upload(content map[string]interface{}, tid, uuid, date stri
 		return err
 	}
 
-	req, err := http.NewRequest("PUT", u.S3WriterURL + uuid  + "?date=" + date, buf)
+	req, err := http.NewRequest("PUT", u.S3WriterURL+uuid+"?date="+date, buf)
 	if err != nil {
 		return err
 	}
@@ -39,6 +39,6 @@ func (u *S3Uploader) Upload(content map[string]interface{}, tid, uuid, date stri
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("Content RW S3 returned HTTP %v", resp.StatusCode)
 	}
-	
+
 	return nil
 }

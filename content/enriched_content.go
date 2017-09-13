@@ -1,9 +1,9 @@
 package content
 
 import (
-	"net/http"
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"net/http"
 )
 
 type Exporter interface {
@@ -11,12 +11,12 @@ type Exporter interface {
 }
 
 type EnrichedContentExporter struct {
-	Client             *http.Client
+	Client             HttpClient
 	EnrichedContentURL string
 }
 
 func (e *EnrichedContentExporter) GetContent(uuid, tid string) (map[string]interface{}, error) {
-	req, err := http.NewRequest("GET", e.EnrichedContentURL+ uuid, nil)
+	req, err := http.NewRequest("GET", e.EnrichedContentURL+uuid, nil)
 	if err != nil {
 		return nil, err
 	}

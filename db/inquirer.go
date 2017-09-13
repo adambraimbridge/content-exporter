@@ -29,7 +29,7 @@ func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan DB
 	iter, length, err := tx.FindUUIDs(collection, 0, 100)
 	if err != nil {
 		tx.Close()
-		return  nil, err
+		return nil, err
 	}
 	log.Infof("Nr of UUIDs found: %v", length)
 	docs := make(chan DBContent, 8)
@@ -40,7 +40,6 @@ func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan DB
 		defer iter.Close()
 		defer close(docs)
 
-
 		var result map[string]interface{}
 
 		for iter.Next(&result) {
@@ -48,22 +47,22 @@ func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan DB
 				break
 			}
 			var uuid, date string
-			docUUID,ok := result["uuid"]
+			docUUID, ok := result["uuid"]
 			if ok {
 				uuid = docUUID.(string)
 			}
-			docFirstPublishedDate,ok := result["firstPublishedDate"]
+			docFirstPublishedDate, ok := result["firstPublishedDate"]
 			if ok {
 				date = strings.Split(docFirstPublishedDate.(string), "T")[0]
 			}
-			docPublishedDate,ok := result["publishedDate"]
+			docPublishedDate, ok := result["publishedDate"]
 			if ok {
 				date = strings.Split(docPublishedDate.(string), "T")[0]
 			}
 			if date == "" {
 				date = defaultDate
 			}
-			docs <- DBContent{uuid,date}
+			docs <- DBContent{uuid, date}
 		}
 	}()
 
