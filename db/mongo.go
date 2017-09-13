@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/mgo.v2"
 )
 
@@ -74,8 +74,7 @@ func (tx *MongoTX) FindUUIDs(collectionID string, skip int, batchsize int) (DBIt
 	collection := tx.session.DB("upp-store").C(collectionID)
 
 	query, projection := findUUIDsQueryElements()
-	//TODO remove limit after testing is complete
-	find := collection.Find(query).Select(projection).Batch(batchsize).Limit(10000)
+	find := collection.Find(query).Select(projection).Batch(batchsize)
 
 	if skip > 0 {
 		find.Skip(skip)

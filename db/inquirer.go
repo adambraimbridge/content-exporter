@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"github.com/coreos/fleet/log"
+	log "github.com/sirupsen/logrus"
 	"strings"
 )
 

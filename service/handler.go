@@ -7,7 +7,7 @@ import (
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/db"
 	"github.com/Financial-Times/transactionid-utils-go"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )

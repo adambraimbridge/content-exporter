@@ -1,8 +1,8 @@
 package main
 
 import (
-	log "github.com/Sirupsen/logrus"
 	"github.com/jawher/mow.cli"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"os/signal"
@@ -27,6 +27,14 @@ import (
 )
 
 const appDescription = "Exports content from DB and sends to S3"
+
+func init() {
+	f := &log.JSONFormatter{
+		TimestampFormat: time.RFC3339Nano,
+	}
+
+	log.SetFormatter(f)
+}
 
 func main() {
 	app := cli.App("content-exporter", appDescription)
@@ -127,7 +135,6 @@ func serveEndpoints(appSystemCode string, appName string, port string, requestHa
 
 	servicesRouter := mux.NewRouter()
 	servicesRouter.HandleFunc("/export", requestHandler.Export).Methods("GET")
-	//todo: add new handlers here
 
 	var monitoringRouter http.Handler = servicesRouter
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
