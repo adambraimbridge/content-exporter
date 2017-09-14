@@ -108,9 +108,10 @@ func main() {
 
 		go func() {
 			serveEndpoints(*appSystemCode, *appName, *port, service.RequestHandler{
-				&db.MongoInquirer{mongo},
-				&content.EnrichedContentExporter{client, *enrichedContentURL},
-				&content.S3Uploader{client, *s3WriterURL},
+				JobPool:  service.NewJobPool(),
+				Inquirer: &db.MongoInquirer{Mongo: mongo},
+				Exporter: &content.EnrichedContentExporter{Client: client, EnrichedContentURL: *enrichedContentURL},
+				Uploader: &content.S3Uploader{Client: client, S3WriterURL: *s3WriterURL},
 			})
 		}()
 
@@ -135,6 +136,7 @@ func serveEndpoints(appSystemCode string, appName string, port string, requestHa
 
 	servicesRouter := mux.NewRouter()
 	servicesRouter.HandleFunc("/export", requestHandler.Export).Methods("GET")
+	servicesRouter.HandleFunc("/job/{jobID}", requestHandler.GetJob).Methods("GET")
 
 	var monitoringRouter http.Handler = servicesRouter
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)

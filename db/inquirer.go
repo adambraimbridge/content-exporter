@@ -2,14 +2,13 @@ package db
 
 import (
 	"context"
-	log "github.com/sirupsen/logrus"
 	"strings"
 )
 
 const defaultDate = "0000-00-00"
 
 type Inquirer interface {
-	Inquire(ctx context.Context, collection string) (chan DBContent, error)
+	Inquire(ctx context.Context, collection string) (chan DBContent, error, int)
 }
 
 type MongoInquirer struct {
@@ -20,18 +19,18 @@ type DBContent struct {
 	Uuid, Date string
 }
 
-func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan DBContent, error) {
+func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan DBContent, error, int) {
 	tx, err := m.Mongo.Open()
 
 	if err != nil {
-		return nil, err
+		return nil, err, 0
 	}
 	iter, length, err := tx.FindUUIDs(collection, 0, 100)
 	if err != nil {
 		tx.Close()
-		return nil, err
+		return nil, err, 0
 	}
-	log.Infof("Nr of UUIDs found: %v", length)
+
 	docs := make(chan DBContent, 8)
 
 	go func() {
@@ -66,5 +65,5 @@ func (m *MongoInquirer) Inquire(ctx context.Context, collection string) (chan DB
 		}
 	}()
 
-	return docs, nil
+	return docs, nil, length
 }
