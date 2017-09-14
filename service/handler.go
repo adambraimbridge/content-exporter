@@ -37,10 +37,11 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 	log.Infof("Nr of UUIDs found: %v", count)
-	job := &job{ID: uuid.New(), docIds: docs, Count: count}
+	job := &job{ID: uuid.New(), DocIds: docs, Count: count}
 	handler.JobPool.AddJob(job)
 	go job.Run(handler, tid)
 
+	writer.WriteHeader(http.StatusAccepted)
 	err = json.NewEncoder(writer).Encode(job)
 	if err != nil {
 		msg := fmt.Sprintf(`Failed to write job %v to response writer: "%v"`, job.ID, err)
@@ -48,6 +49,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		fmt.Fprintf(writer, "{\"ID\": \"%v\"}", job.ID)
 		return
 	}
+	log.Infof("Finished export")
 }
 
 func (handler *RequestHandler) GetJob(writer http.ResponseWriter, request *http.Request) {

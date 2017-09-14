@@ -19,7 +19,7 @@ type JobPool struct {
 
 type job struct {
 	ID       string            `json:"ID"`
-	docIds   chan db.DBContent `json:"-"`
+	DocIds   chan db.DBContent `json:"-"`
 	Count    int               `json:"Count,omitempty"`
 	Progress int               `json:"Progress,omitempty"`
 	Failed   []string          `json:"Failed,omitempty"`
@@ -50,13 +50,14 @@ func (p *JobPool) AddJob(job *job) {
 }
 
 func (job *job) Run(handler *RequestHandler, tid string) {
+	log.Infof("Job started: %v", job.ID)
 	for {
-		doc, ok := <-job.docIds
+		doc, ok := <-job.DocIds
 		if !ok {
-			log.Infof("Finished job %v with %v failures", job.ID, len(job.Failed))
+			log.Infof("Finished job %v with %v failure(s), progress: %v", job.ID, len(job.Failed), job.Progress)
 			return
 		}
-
+		log.Infof("Progress %v for : %v", job.Progress, job.ID)
 		payload, err := handler.Exporter.GetContent(doc.Uuid, tid)
 		if err != nil {
 			job.Failed = append(job.Failed, doc.Uuid)
