@@ -49,7 +49,6 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		fmt.Fprintf(writer, "{\"ID\": \"%v\"}", job.ID)
 		return
 	}
-	log.Infof("Finished export")
 }
 
 func (handler *RequestHandler) GetJob(writer http.ResponseWriter, request *http.Request) {

@@ -57,7 +57,6 @@ func (job *job) Run(handler *RequestHandler, tid string) {
 			log.Infof("Finished job %v with %v failure(s), progress: %v", job.ID, len(job.Failed), job.Progress)
 			return
 		}
-		log.Infof("Progress %v for : %v", job.Progress, job.ID)
 		payload, err := handler.Exporter.GetContent(doc.Uuid, tid)
 		if err != nil {
 			job.Failed = append(job.Failed, doc.Uuid)
