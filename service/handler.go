@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/Financial-Times/content-exporter/content"
@@ -11,7 +10,6 @@ import (
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"time"
 )
 
 type RequestHandler struct {
@@ -27,7 +25,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	tid := transactionidutils.GetTransactionIDFromRequest(request)
 
 	log.Infoln("Calling mongo")
-	docs, err, count := handler.Inquirer.Inquire(ctx, "content")
+	docs, err, count := handler.Inquirer.Inquire("content")
 	if err != nil {
 		msg := fmt.Sprintf(`Failed to read IDs from mongo for %v! "%v"`, "content", err.Error())
 		log.Info(msg)
