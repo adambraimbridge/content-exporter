@@ -12,11 +12,6 @@ import (
 var expectedConnections = 1
 var connections = 0
 
-type Content struct {
-	Body        map[string]interface{} `bson:"content"`
-	ContentType string                 `bson:"content-type"`
-}
-
 // DB contains database functions
 type DB interface {
 	Open() (TX, error)
@@ -25,7 +20,7 @@ type DB interface {
 
 // TX contains database transaction functions
 type TX interface {
-	FindUUIDs(collectionId string, skip int, batchsize int) (DBIter, int, error)
+	FindUUIDs(collectionId string, skip int, batchsize int) (Iterator, int, error)
 	Ping(ctx context.Context) error
 	Close()
 }
@@ -57,7 +52,7 @@ func (db *MongoDB) Open() (TX, error) {
 			log.WithError(err).Error("Session error")
 			return nil, err
 		}
-		session.SetSocketTimeout(10 * time.Minute)
+		session.SetSocketTimeout(20 * time.Minute) //TODO this is a nasty hack
 		db.session = session
 		connections++
 
@@ -70,7 +65,7 @@ func (db *MongoDB) Open() (TX, error) {
 }
 
 // FindUUIDs returns all uuids for a collection sorted by lastodified date, if no lastmodified exists records are returned at the end of the list
-func (tx *MongoTX) FindUUIDs(collectionID string, skip int, batchsize int) (DBIter, int, error) {
+func (tx *MongoTX) FindUUIDs(collectionID string, skip int, batchsize int) (Iterator, int, error) {
 	collection := tx.session.DB("upp-store").C(collectionID)
 
 	query, projection := findUUIDsQueryElements()
@@ -109,7 +104,7 @@ func (db *MongoDB) Close() {
 	db.session.Close()
 }
 
-type DBIter interface {
+type Iterator interface {
 	Done() bool
 	Next(result interface{}) bool
 	Err() error

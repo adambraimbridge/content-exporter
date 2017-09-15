@@ -75,6 +75,7 @@ func main() {
 		Desc:   "URL to S3 writer endpoint",
 		EnvVar: "S3_WRITER_URL",
 	})
+	//TODO env var for X-Policy
 
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] content-exporter is starting ")
@@ -135,8 +136,8 @@ func serveEndpoints(appSystemCode string, appName string, port string, requestHa
 	serveMux.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 
 	servicesRouter := mux.NewRouter()
-	servicesRouter.HandleFunc("/export", requestHandler.Export).Methods("GET")
-	servicesRouter.HandleFunc("/job/{jobID}", requestHandler.GetJob).Methods("GET")
+	servicesRouter.HandleFunc("/export", requestHandler.Export).Methods(http.MethodPost)
+	servicesRouter.HandleFunc("/job/{jobID}", requestHandler.GetJob).Methods(http.MethodGet)
 
 	var monitoringRouter http.Handler = servicesRouter
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)

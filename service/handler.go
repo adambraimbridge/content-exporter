@@ -28,7 +28,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 
 	// ignore cancel event as this is supposed to run after the request is served
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Minute)
-
+	log.Infoln("Calling mongo")
 	docs, err, count := handler.Inquirer.Inquire(ctx, "content")
 	if err != nil {
 		msg := fmt.Sprintf(`Failed to read IDs from mongo for %v! "%v"`, "content", err.Error())
