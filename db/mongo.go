@@ -52,7 +52,7 @@ func (db *MongoDB) Open() (TX, error) {
 			log.WithError(err).Error("Session error")
 			return nil, err
 		}
-		session.SetSocketTimeout(20 * time.Minute) //TODO this is a nasty hack
+		session.SetSocketTimeout(1 * time.Hour) //TODO this is a nasty hack. Is this needed?
 		db.session = session
 		connections++
 

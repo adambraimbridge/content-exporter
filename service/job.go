@@ -19,7 +19,7 @@ type JobPool struct {
 
 type job struct {
 	ID       string            `json:"ID"`
-	DocIds   chan db.DBContent `json:"-"`
+	DocIds   chan db.Content `json:"-"`
 	Count    int               `json:"Count,omitempty"`
 	Progress int               `json:"Progress,omitempty"`
 	Failed   []string          `json:"Failed,omitempty"`
