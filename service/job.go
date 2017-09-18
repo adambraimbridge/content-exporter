@@ -18,11 +18,11 @@ type JobPool struct {
 }
 
 type job struct {
-	ID       string            `json:"ID"`
+	ID       string          `json:"ID"`
 	DocIds   chan db.Content `json:"-"`
-	Count    int               `json:"Count,omitempty"`
-	Progress int               `json:"Progress,omitempty"`
-	Failed   []string          `json:"Failed,omitempty"`
+	Count    int             `json:"Count,omitempty"`
+	Progress int             `json:"Progress,omitempty"`
+	Failed   []string        `json:"Failed,omitempty"`
 }
 
 func NewJobPool() *JobPool {
@@ -49,7 +49,7 @@ func (p *JobPool) AddJob(job *job) {
 	}
 }
 
-func (job *job) Run(handler *RequestHandler, tid string) {
+func (job *job) Run(handler *RequestHandler, tid string, export func(string, db.Content) error) {
 	log.Infof("Job started: %v", job.ID)
 	for {
 		doc, ok := <-job.DocIds
@@ -58,19 +58,14 @@ func (job *job) Run(handler *RequestHandler, tid string) {
 			return
 		}
 		job.Progress++
-		payload, err := handler.Exporter.GetContent(doc.Uuid, tid)
-		if err != nil {
-			job.Failed = append(job.Failed, doc.Uuid)
-			log.Errorf("Error by getting content for %v: %v\n", doc.Uuid, err)
-			continue
-		}
+		job.Submit(export, tid, doc)
 
-		err = handler.Uploader.Upload(payload, tid, doc.Uuid, doc.Date)
-		if err != nil {
-			job.Failed = append(job.Failed, doc.Uuid)
-			log.Errorf("Error by uploading content for %v: %v\n", doc.Uuid, err)
-			continue
-		}
+	}
+}
 
+func (job *job) Submit(export func(string, db.Content) error, tid string, doc db.Content) {
+	//TODO implement worker
+	if err := export(tid, doc); err != nil {
+		job.Failed = append(job.Failed, doc.Uuid)
 	}
 }

@@ -15,7 +15,7 @@ func findUUIDsQueryElements() (bson.M, bson.M) {
 		"$and": []bson.M{
 			{"$or": []bson.M{
 				{"canBeDistributed": "yes"},
-				{"canBeDistributed": bson.M{"$exists": false }},
+				{"canBeDistributed": bson.M{"$exists": false}},
 			}},
 			{"$or": []bson.M{
 				{"type": "Article"},

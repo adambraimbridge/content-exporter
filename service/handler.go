@@ -35,9 +35,11 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	log.Infof("Nr of UUIDs found: %v", count)
 	job := &job{ID: uuid.New(), DocIds: docs, Count: count}
 	handler.JobPool.AddJob(job)
-	go job.Run(handler, tid)
+	go job.Run(handler, tid, handler.HandleContent)
 
 	writer.WriteHeader(http.StatusAccepted)
+	writer.Header().Add("Content-Type", "application/json")
+
 	err = json.NewEncoder(writer).Encode(job)
 	if err != nil {
 		msg := fmt.Sprintf(`Failed to write job %v to response writer: "%v"`, job.ID, err)
@@ -52,6 +54,8 @@ func (handler *RequestHandler) GetJob(writer http.ResponseWriter, request *http.
 
 	vars := mux.Vars(request)
 	jobID := vars["jobID"]
+
+	writer.Header().Add("Content-Type", "application/json")
 
 	job, err := handler.JobPool.GetJob(jobID)
 	if err != nil {
@@ -69,4 +73,19 @@ func (handler *RequestHandler) GetJob(writer http.ResponseWriter, request *http.
 		return
 	}
 
+}
+
+func (handler *RequestHandler) HandleContent(tid string, doc db.Content) error {
+	payload, err := handler.Exporter.GetContent(doc.Uuid, tid)
+	if err != nil {
+		log.Errorf("Error by getting content for %v: %v\n", doc.Uuid, err)
+		return err
+	}
+
+	err = handler.Uploader.Upload(payload, tid, doc.Uuid, doc.Date)
+	if err != nil {
+		log.Errorf("Error by uploading content for %v: %v\n", doc.Uuid, err)
+		return err
+	}
+	return nil
 }

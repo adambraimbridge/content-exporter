@@ -11,8 +11,9 @@ type Exporter interface {
 }
 
 type EnrichedContentExporter struct {
-	Client             HttpClient
-	EnrichedContentURL string
+	Client              HttpClient
+	EnrichedContentURL  string
+	XPolicyHeaderValues string
 }
 
 func (e *EnrichedContentExporter) GetContent(uuid, tid string) (map[string]interface{}, error) {
@@ -23,6 +24,10 @@ func (e *EnrichedContentExporter) GetContent(uuid, tid string) (map[string]inter
 	req.Header.Add("User-Agent", "UPP Content Exporter")
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("X-Request-Id", tid)
+
+	if e.XPolicyHeaderValues != "" {
+		req.Header.Add("X-Policy", e.XPolicyHeaderValues)
+	}
 
 	resp, err := e.Client.Do(req)
 	if err != nil {

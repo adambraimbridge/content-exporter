@@ -75,7 +75,12 @@ func main() {
 		Desc:   "URL to S3 writer endpoint",
 		EnvVar: "S3_WRITER_URL",
 	})
-	//TODO env var for X-Policy
+	xPolicyHeaderValues := app.String(cli.StringOpt{
+		Name:   "xPolicyHeaderValues",
+		Value:  "",
+		Desc:   "Values for X-Policy header separated by comma, e.g. INCLUDE_RICH_CONTENT,EXPAND_IMAGES",
+		EnvVar: "X_POLICY_HEADER_VALUES",
+	})
 
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] content-exporter is starting ")
@@ -111,7 +116,7 @@ func main() {
 			serveEndpoints(*appSystemCode, *appName, *port, service.RequestHandler{
 				JobPool:  service.NewJobPool(),
 				Inquirer: &db.MongoInquirer{Mongo: mongo},
-				Exporter: &content.EnrichedContentExporter{Client: client, EnrichedContentURL: *enrichedContentURL},
+				Exporter: &content.EnrichedContentExporter{Client: client, EnrichedContentURL: *enrichedContentURL, XPolicyHeaderValues: *xPolicyHeaderValues},
 				Uploader: &content.S3Uploader{Client: client, S3WriterURL: *s3WriterURL},
 			})
 		}()
