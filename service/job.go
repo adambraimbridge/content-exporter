@@ -62,7 +62,7 @@ func (job *job) Run(handler *RequestHandler, tid string, export func(string, db.
 			return
 		}
 		job.Progress++
-		<- worker // Wait until worker is available to span up new goroutines
+		worker <- struct{}{}
 		job.wg.Add(1)
 		go job.submit(export, tid, doc, worker)
 
@@ -74,5 +74,5 @@ func (job *job) submit(export func(string, db.Content) error, tid string, doc db
 	if err := export(tid, doc); err != nil {
 		job.Failed = append(job.Failed, doc.Uuid)
 	}
-	worker <- struct{}{}
+	<- worker // Wait until worker is available to span up new goroutines
 }
