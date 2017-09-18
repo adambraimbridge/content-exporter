@@ -18,7 +18,7 @@ type JobPool struct {
 }
 
 type job struct {
-	wg *sync.WaitGroup
+	wg sync.WaitGroup
 	nrWorker int
 	ID       string          `json:"ID"`
 	DocIds   chan db.Content `json:"-"`
