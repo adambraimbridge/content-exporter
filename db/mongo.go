@@ -52,7 +52,7 @@ func (db *MongoDB) Open() (TX, error) {
 			log.WithError(err).Error("Session error")
 			return nil, err
 		}
-		session.SetSocketTimeout(1 * time.Hour) //TODO this is a nasty hack. Is this needed?
+		session.SetSocketTimeout(10 * time.Minute)
 		db.session = session
 		connections++
 
@@ -69,7 +69,7 @@ func (tx *MongoTX) FindUUIDs(collectionID string, skip int, batchsize int) (Iter
 	collection := tx.session.DB("upp-store").C(collectionID)
 
 	query, projection := findUUIDsQueryElements()
-	find := collection.Find(query).Select(projection).Batch(batchsize)
+	find := collection.Find(query).Select(projection).Batch(batchsize).Limit(10000) //TODO remove limit
 
 	if skip > 0 {
 		find.Skip(skip)
