@@ -118,6 +118,7 @@ func main() {
 				Inquirer: &db.MongoInquirer{Mongo: mongo},
 				Exporter: &content.EnrichedContentExporter{Client: client, EnrichedContentURL: *enrichedContentURL, XPolicyHeaderValues: *xPolicyHeaderValues},
 				Uploader: &content.S3Uploader{Client: client, S3WriterURL: *s3WriterURL},
+				NrOfConcurrentWorkers: 30,
 			})
 		}()
 

@@ -17,6 +17,7 @@ type RequestHandler struct {
 	Inquirer db.Inquirer
 	Exporter content.Exporter
 	Uploader content.Uploader
+	NrOfConcurrentWorkers int
 }
 
 func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.Request) {
@@ -33,7 +34,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 	log.Infof("Nr of UUIDs found: %v", count)
-	job := &job{ID: uuid.New(), DocIds: docs, Count: count, nrWorker: 30}
+	job := &job{ID: uuid.New(), DocIds: docs, Count: count, nrWorker: handler.NrOfConcurrentWorkers}
 	handler.JobPool.AddJob(job)
 	go job.Run(handler, tid, handler.HandleContent)
 

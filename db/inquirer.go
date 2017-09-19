@@ -47,12 +47,14 @@ func (m *MongoInquirer) Inquire(collection string) (chan Content, error, int) {
 				uuid = docUUID.(string)
 			}
 			docFirstPublishedDate, ok := result["firstPublishedDate"]
+			d, ok := docFirstPublishedDate.(string)
 			if ok {
-				date = strings.Split(docFirstPublishedDate.(string), "T")[0]
+				date = strings.Split(d, "T")[0]
 			}
 			docPublishedDate, ok := result["publishedDate"]
+			d, ok = docPublishedDate.(string)
 			if ok {
-				date = strings.Split(docPublishedDate.(string), "T")[0]
+				date = strings.Split(d, "T")[0]
 			}
 			if date == "" {
 				date = defaultDate
