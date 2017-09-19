@@ -81,6 +81,12 @@ func main() {
 		Desc:   "Values for X-Policy header separated by comma, e.g. INCLUDE_RICH_CONTENT,EXPAND_IMAGES",
 		EnvVar: "X_POLICY_HEADER_VALUES",
 	})
+	authorization := app.String(cli.StringOpt{
+		Name:   "authorization",
+		Value:  "",
+		Desc:   "Authorization for enrichedcontent endpoint",
+		EnvVar: "AUTHORIZATION",
+	})
 
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] content-exporter is starting ")
@@ -116,7 +122,7 @@ func main() {
 			serveEndpoints(*appSystemCode, *appName, *port, service.RequestHandler{
 				JobPool:  service.NewJobPool(),
 				Inquirer: &db.MongoInquirer{Mongo: mongo},
-				Exporter: &content.EnrichedContentExporter{Client: client, EnrichedContentURL: *enrichedContentURL, XPolicyHeaderValues: *xPolicyHeaderValues},
+				Exporter: &content.EnrichedContentExporter{Client: client, EnrichedContentURL: *enrichedContentURL, XPolicyHeaderValues: *xPolicyHeaderValues, Authorization: *authorization},
 				Uploader: &content.S3Uploader{Client: client, S3WriterURL: *s3WriterURL},
 				NrOfConcurrentWorkers: 30,
 			})

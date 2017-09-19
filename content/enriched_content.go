@@ -14,6 +14,7 @@ type EnrichedContentExporter struct {
 	Client              HttpClient
 	EnrichedContentURL  string
 	XPolicyHeaderValues string
+	Authorization string
 }
 
 func (e *EnrichedContentExporter) GetContent(uuid, tid string) (map[string]interface{}, error) {
@@ -27,6 +28,9 @@ func (e *EnrichedContentExporter) GetContent(uuid, tid string) (map[string]inter
 
 	if e.XPolicyHeaderValues != "" {
 		req.Header.Add("X-Policy", e.XPolicyHeaderValues)
+	}
+	if e.Authorization != "" {
+		req.Header.Add("Authorization", e.Authorization)
 	}
 
 	resp, err := e.Client.Do(req)
