@@ -19,6 +19,7 @@ type JobPool struct {
 
 type job struct {
 	wg sync.WaitGroup
+	sync.RWMutex
 	nrWorker int
 	ID       string          `json:"ID"`
 	DocIds   chan db.Content `json:"-"`
@@ -61,8 +62,10 @@ func (job *job) Run(handler *RequestHandler, tid string, export func(string, db.
 			log.Infof("Finished job %v with %v failure(s), progress: %v", job.ID, len(job.Failed), job.Progress)
 			return
 		}
+		job.Lock()
 		job.Progress++
-		worker <- struct{}{}
+		job.Unlock()
+		worker <- struct{}{}  // Wait until worker is available to span up new goroutines
 		job.wg.Add(1)
 		go job.submit(export, tid, doc, worker)
 
@@ -72,7 +75,9 @@ func (job *job) Run(handler *RequestHandler, tid string, export func(string, db.
 func (job *job) submit(export func(string, db.Content) error, tid string, doc db.Content, worker chan struct{}) {
 	defer job.wg.Done()
 	if err := export(tid, doc); err != nil {
+		job.Lock()
 		job.Failed = append(job.Failed, doc.Uuid)
+		job.Unlock()
 	}
-	<- worker // Wait until worker is available to span up new goroutines
+	<- worker
 }
