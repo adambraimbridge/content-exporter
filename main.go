@@ -120,11 +120,10 @@ func main() {
 
 		go func() {
 			serveEndpoints(*appSystemCode, *appName, *port, service.RequestHandler{
-				JobPool:  service.NewJobPool(),
+				JobPool:  service.NewJobPool(1),
 				Inquirer: &db.MongoInquirer{Mongo: mongo},
 				Exporter: &content.EnrichedContentExporter{Client: client, EnrichedContentURL: *enrichedContentURL, XPolicyHeaderValues: *xPolicyHeaderValues, Authorization: *authorization},
 				Uploader: &content.S3Uploader{Client: client, S3WriterURL: *s3WriterURL},
-				NrOfConcurrentWorkers: 30,
 			})
 		}()
 
@@ -149,7 +148,8 @@ func serveEndpoints(appSystemCode string, appName string, port string, requestHa
 
 	servicesRouter := mux.NewRouter()
 	servicesRouter.HandleFunc("/export", requestHandler.Export).Methods(http.MethodPost)
-	servicesRouter.HandleFunc("/job/{jobID}", requestHandler.GetJob).Methods(http.MethodGet)
+	servicesRouter.HandleFunc("/jobs/{jobID}", requestHandler.GetJob).Methods(http.MethodGet)
+	servicesRouter.HandleFunc("/jobs", requestHandler.GetRunningJobs).Methods(http.MethodGet)
 
 	var monitoringRouter http.Handler = servicesRouter
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)

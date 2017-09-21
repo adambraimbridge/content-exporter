@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 	"time"
-
+	"gopkg.in/mgo.v2/bson"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/mgo.v2"
 )
@@ -20,9 +20,17 @@ type DB interface {
 
 // TX contains database transaction functions
 type TX interface {
-	FindUUIDs(collectionId string, skip int, batchsize int) (Iterator, int, error)
+	FindUUIDs(collectionId string) (Iterator, int, error)
 	Ping(ctx context.Context) error
 	Close()
+}
+
+type Iterator interface {
+	Done() bool
+	Next(result interface{}) bool
+	Err() error
+	Timeout() bool
+	Close() error
 }
 
 // MongoTX wraps a mongo session
@@ -64,19 +72,14 @@ func (db *MongoDB) Open() (TX, error) {
 	return &MongoTX{db.session.Copy()}, nil
 }
 
-// FindUUIDs returns all uuids for a collection sorted by lastodified date, if no lastmodified exists records are returned at the end of the list
-func (tx *MongoTX) FindUUIDs(collectionID string, skip int, batchsize int) (Iterator, int, error) {
+func (tx *MongoTX) FindUUIDs(collectionID string) (Iterator, int, error) {
 	collection := tx.session.DB("upp-store").C(collectionID)
 
 	query, projection := findUUIDsQueryElements()
-	find := collection.Find(query).Select(projection).Batch(batchsize)
+	find := collection.Find(query).Select(projection).Batch(100).Limit(10000) //TODO remove limit
 
-	if skip > 0 {
-		find.Skip(skip)
-	}
-
-	count, err := find.Count()
-	return find.Iter(), count + skip, err // add count to skip as this correctly computes the total size of the cursor
+	count, err := find.Count() //after count returns new data may be added 
+	return find.Iter(), count, err
 }
 
 // Ping returns a mongo ping response
@@ -104,10 +107,24 @@ func (db *MongoDB) Close() {
 	db.session.Close()
 }
 
-type Iterator interface {
-	Done() bool
-	Next(result interface{}) bool
-	Err() error
-	Timeout() bool
-	Close() error
+var uuidProjection = bson.M{
+	"uuid":               1,
+	"firstPublishedDate": 1,
+	"publishedDate":      1,
+}
+
+func findUUIDsQueryElements() (bson.M, bson.M) {
+	return bson.M{
+		"$and": []bson.M{
+			{"$or": []bson.M{
+				{"canBeDistributed": "yes"},
+				{"canBeDistributed": bson.M{"$exists": false}},
+			}},
+			{"$or": []bson.M{
+				{"type": "Article"},
+				{"body": bson.M{"$ne": nil}},
+				{"realtime": true},
+			}},
+		},
+	}, uuidProjection
 }

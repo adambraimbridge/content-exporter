@@ -24,7 +24,7 @@ func (m *MongoInquirer) Inquire(collection string) (chan Content, error, int) {
 	if err != nil {
 		return nil, err, 0
 	}
-	iter, length, err := tx.FindUUIDs(collection, 0, 100)
+	iter, length, err := tx.FindUUIDs(collection)
 	if err != nil {
 		tx.Close()
 		return nil, err, 0

@@ -7,31 +7,54 @@ import (
 	"sync"
 )
 
-type Pool interface {
-	AddJob(job *job)
-	GetJob(jobID string) (*job, error)
-}
+//type Pool interface {
+//	AddJob(job *job)
+//	GetJob(jobID string) (*job, error)
+//	GetRunningJobs() []*job
+//}
 
 type JobPool struct {
 	sync.RWMutex
 	jobs map[string]*job
+	NrOfConcurrentWorkers int
 }
+
+type State string
+
+const (
+	RUNNING State = "Running"
+	FINISHED State = "Finished"
+)
 
 type job struct {
 	wg sync.WaitGroup
 	sync.RWMutex
 	nrWorker int
+	DocIds   chan db.Content
 	ID       string          `json:"ID"`
-	DocIds   chan db.Content `json:"-"`
-	Count    int             `json:"Count,omitempty"`
+	Count    int             `json:"ApproximateCount,omitempty"`
 	Progress int             `json:"Progress,omitempty"`
 	Failed   []string        `json:"Failed,omitempty"`
+	Status       State      `json:"Status"`
 }
 
-func NewJobPool() *JobPool {
+func NewJobPool(nrOfWorkers int) *JobPool {
 	return &JobPool{
 		jobs: make(map[string]*job),
+		NrOfConcurrentWorkers: nrOfWorkers,
 	}
+}
+
+func (p *JobPool) GetRunningJobs() []*job {
+	p.RLock()
+	defer p.RUnlock()
+	var jobs []*job
+	for _, job := range p.jobs {
+		if job.Status == RUNNING {
+			jobs = append(jobs, job)
+		}
+	}
+	return jobs
 }
 
 func (p *JobPool) GetJob(jobID string) (*job, error) {
@@ -55,15 +78,18 @@ func (p *JobPool) AddJob(job *job) {
 func (job *job) Run(handler *RequestHandler, tid string, export func(string, db.Content) error) {
 	log.Infof("Job started: %v", job.ID)
 	worker := make(chan struct{}, job.nrWorker)
+	fmt.Printf("DEBUG INFO - ")
 	for {
 		doc, ok := <-job.DocIds
 		if !ok {
 			job.wg.Wait()
+			job.Status = FINISHED
 			log.Infof("Finished job %v with %v failure(s), progress: %v", job.ID, len(job.Failed), job.Progress)
 			return
 		}
 		job.Lock()
 		job.Progress++
+		fmt.Printf(" %v", job.Progress)
 		job.Unlock()
 		worker <- struct{}{}  // Wait until worker is available to span up new goroutines
 		job.wg.Add(1)

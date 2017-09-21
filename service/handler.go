@@ -13,11 +13,10 @@ import (
 )
 
 type RequestHandler struct {
-	JobPool  Pool
+	JobPool  *JobPool
 	Inquirer db.Inquirer
 	Exporter content.Exporter
 	Uploader content.Uploader
-	NrOfConcurrentWorkers int
 }
 
 func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.Request) {
@@ -34,7 +33,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 	log.Infof("Nr of UUIDs found: %v", count)
-	job := &job{ID: uuid.New(), DocIds: docs, Count: count, nrWorker: handler.NrOfConcurrentWorkers}
+	job := &job{ID: uuid.New(), DocIds: docs, Count: count, nrWorker: handler.JobPool.NrOfConcurrentWorkers, Status: RUNNING}
 	handler.JobPool.AddJob(job)
 	go job.Run(handler, tid, handler.HandleContent)
 
@@ -71,6 +70,22 @@ func (handler *RequestHandler) GetJob(writer http.ResponseWriter, request *http.
 		msg := fmt.Sprintf(`Failed to write job %v to response writer: "%v"`, job.ID, err)
 		log.Warn(msg)
 		fmt.Fprintf(writer, "{\"ID\": \"%v\"}", job.ID)
+		return
+	}
+}
+
+func (handler *RequestHandler) GetRunningJobs(writer http.ResponseWriter, request *http.Request) {
+	defer request.Body.Close()
+
+	writer.Header().Add("Content-Type", "application/json")
+
+	jobs := handler.JobPool.GetRunningJobs()
+
+	err := json.NewEncoder(writer).Encode(jobs)
+	if err != nil {
+		msg := fmt.Sprintf(`Failed to get running jobs: "%v"`, err)
+		log.Warn(msg)
+		fmt.Fprintf(writer, "{\"Jobs\": \"%v\"}", jobs)
 		return
 	}
 
