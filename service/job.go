@@ -27,15 +27,15 @@ const (
 )
 
 type job struct {
-	wg sync.WaitGroup
 	sync.RWMutex
+	wg       sync.WaitGroup
 	nrWorker int
-	DocIds   chan db.Content
+	docIds   chan db.Content
 	ID       string          `json:"ID"`
 	Count    int             `json:"ApproximateCount,omitempty"`
 	Progress int             `json:"Progress,omitempty"`
 	Failed   []string        `json:"Failed,omitempty"`
-	Status       State      `json:"Status"`
+	Status   State      `json:"Status"`
 }
 
 func NewJobPool(nrOfWorkers int) *JobPool {
@@ -80,8 +80,9 @@ func (job *job) Run(handler *RequestHandler, tid string, export func(string, db.
 	worker := make(chan struct{}, job.nrWorker)
 	fmt.Printf("DEBUG INFO - ")
 	for {
-		doc, ok := <-job.DocIds
+		doc, ok := <-job.docIds
 		if !ok {
+			fmt.Printf("\n")
 			job.wg.Wait()
 			job.Status = FINISHED
 			log.Infof("Finished job %v with %v failure(s), progress: %v", job.ID, len(job.Failed), job.Progress)

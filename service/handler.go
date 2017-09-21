@@ -33,7 +33,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 	log.Infof("Nr of UUIDs found: %v", count)
-	job := &job{ID: uuid.New(), DocIds: docs, Count: count, nrWorker: handler.JobPool.NrOfConcurrentWorkers, Status: RUNNING}
+	job := &job{ID: uuid.New(), docIds: docs, Count: count, nrWorker: handler.JobPool.NrOfConcurrentWorkers, Status: RUNNING}
 	handler.JobPool.AddJob(job)
 	go job.Run(handler, tid, handler.HandleContent)
 
