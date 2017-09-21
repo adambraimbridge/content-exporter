@@ -120,7 +120,7 @@ func main() {
 
 		go func() {
 			serveEndpoints(*appSystemCode, *appName, *port, service.RequestHandler{
-				JobPool:  service.NewJobPool(1),
+				JobPool:  service.NewJobPool(30),
 				Inquirer: &db.MongoInquirer{Mongo: mongo},
 				Exporter: &content.EnrichedContentExporter{Client: client, EnrichedContentURL: *enrichedContentURL, XPolicyHeaderValues: *xPolicyHeaderValues, Authorization: *authorization},
 				Uploader: &content.S3Uploader{Client: client, S3WriterURL: *s3WriterURL},
