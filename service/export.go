@@ -33,8 +33,8 @@ func (e *ContentExporter) HandleContent(tid string, doc Content) error {
 
 type Pool interface {
 	AddJob(job *Job)
-	GetJob(jobID string) (*Job, error)
-	GetRunningJobs() []*Job
+	GetJob(jobID string) (Job, error)
+	GetRunningJobs() []Job
 }
 
 type JobPool struct {
@@ -89,7 +89,7 @@ func (p *JobPool) GetJob(jobID string) (Job, error) {
 	defer p.RUnlock()
 	job, ok := p.jobs[jobID]
 	if !ok {
-		return nil, fmt.Errorf("Job %v not found", jobID)
+		return Job{}, fmt.Errorf("Job %v not found", jobID)
 	}
 	return job.Copy(), nil
 }
