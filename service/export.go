@@ -124,7 +124,6 @@ func (job *Job) RunFullExport(tid string, export func(string, Content) error) {
 			job.wg.Wait()
 			job.Status = FINISHED
 			log.Infof("Finished job %v with %v failure(s), progress: %v", job.ID, len(job.Failed), job.Progress)
-			//TODO close worker?
 			close(worker)
 			return
 		}

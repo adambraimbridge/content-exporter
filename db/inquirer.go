@@ -3,6 +3,7 @@ package db
 import (
 	"strings"
 	"github.com/Financial-Times/content-exporter/service"
+	log "github.com/sirupsen/logrus"
 )
 
 const defaultDate = "0000-00-00"
@@ -36,8 +37,9 @@ func (m *MongoInquirer) Inquire(collection string) (chan service.Content, error,
 		defer close(docs)
 
 		var result map[string]interface{}
-
+		counter:=0
 		for iter.Next(&result) {
+			counter++
 			var uuid, date string
 			docUUID, ok := result["uuid"]
 			if ok {
@@ -58,6 +60,7 @@ func (m *MongoInquirer) Inquire(collection string) (chan service.Content, error,
 			}
 			docs <- service.Content{uuid, date}
 		}
+		log.Infof("Processed %v docs", counter)
 	}()
 
 	return docs, nil, length

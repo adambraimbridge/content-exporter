@@ -78,8 +78,11 @@ func (tx *MongoTX) FindUUIDs(collectionID string) (Iterator, int, error) {
 	query, projection := findUUIDsQueryElements()
 	find := collection.Find(query).Select(projection).Batch(100).Limit(800000) //TODO remove limit
 
-	count, err := find.Count() //after count returns new data may be added 
-	return find.Iter(), count, err
+	count, err := find.Count() //after count returns new data may be added
+	iter := find.Iter()
+	countAfter, _ := find.Count()
+	log.Printf("Nr of uuids found AFTER iter: %v", countAfter)
+	return iter, count, err
 }
 
 // Ping returns a mongo ping response
