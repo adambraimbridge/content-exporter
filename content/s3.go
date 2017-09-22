@@ -7,13 +7,15 @@ import (
 	"net/http"
 )
 
+const s3WriterPath = "/content/"
+
 type Uploader interface {
 	Upload(content map[string]interface{}, tid, uuid, date string) error
 }
 
 type S3Uploader struct {
-	Client      Client
-	S3WriterURL string
+	Client          Client
+	S3WriterBaseURL string
 }
 
 func (u *S3Uploader) Upload(content map[string]interface{}, tid, uuid, date string) error {
@@ -23,7 +25,7 @@ func (u *S3Uploader) Upload(content map[string]interface{}, tid, uuid, date stri
 		return err
 	}
 
-	req, err := http.NewRequest("PUT", u.S3WriterURL+uuid+"?date="+date, buf)
+	req, err := http.NewRequest("PUT", u.S3WriterBaseURL+s3WriterPath+uuid+"?date="+date, buf)
 	if err != nil {
 		return err
 	}

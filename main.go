@@ -64,17 +64,17 @@ func main() {
 		Desc:   "Mongo addresses to connect to in format: host1[:port1][,host2[:port2],...]",
 		EnvVar: "MONGO_CONNECTION",
 	})
-	enrichedContentURL := app.String(cli.StringOpt{
-		Name:   "enrichedContentURL",
-		Value:  "http://localhost:8080/enrichedcontent/",
-		Desc:   "URL to enriched content endpoint",
-		EnvVar: "ENRICHED_CONTENT_URL",
+	enrichedContentBaseURL := app.String(cli.StringOpt{
+		Name:   "enrichedContentBaseURL",
+		Value:  "http://localhost:8080",
+		Desc:   "Base URL to enriched content endpoint",
+		EnvVar: "ENRICHED_CONTENT_BASE_URL",
 	})
-	s3WriterURL := app.String(cli.StringOpt{
-		Name:   "s3WriterURL",
-		Value:  "http://localhost:8080//",
-		Desc:   "URL to S3 writer endpoint",
-		EnvVar: "S3_WRITER_URL",
+	s3WriterBaseURL := app.String(cli.StringOpt{
+		Name:   "s3WriterBaseURL",
+		Value:  "http://localhost:8080",
+		Desc:   "Base URL to S3 writer endpoint",
+		EnvVar: "S3_WRITER_BASE_URL",
 	})
 	xPolicyHeaderValues := app.String(cli.StringOpt{
 		Name:   "xPolicyHeaderValues",
@@ -120,14 +120,15 @@ func main() {
 		client.Concurrency = 1
 
 		go func() {
+			fetcher := &content.EnrichedContentFetcher{Client: client, EnrichedContentBaseURL: *enrichedContentBaseURL, XPolicyHeaderValues: *xPolicyHeaderValues, Authorization: *authorization}
 			serveEndpoints(*appSystemCode, *appName, *port, apphttp.RequestHandler{
 				JobPool:  service.NewJobPool(30),
 				Inquirer: &db.MongoInquirer{Mongo: mongo},
 				ContentExporter: &service.ContentExporter{
-					Fetcher: &content.EnrichedContentFetcher{Client: client, EnrichedContentURL: *enrichedContentURL, XPolicyHeaderValues: *xPolicyHeaderValues, Authorization: *authorization},
-					Uploader: &content.S3Uploader{Client: client, S3WriterURL: *s3WriterURL},
+					Fetcher:  fetcher,
+					Uploader: &content.S3Uploader{Client: client, S3WriterBaseURL: *s3WriterBaseURL},
 				},
-			})
+			}, mongo, fetcher)
 		}()
 
 		waitForSignal()
@@ -139,8 +140,8 @@ func main() {
 	}
 }
 
-func serveEndpoints(appSystemCode string, appName string, port string, requestHandler apphttp.RequestHandler) {
-	healthService := newHealthService(&healthConfig{appSystemCode: appSystemCode, appName: appName, port: port})
+func serveEndpoints(appSystemCode string, appName string, port string, requestHandler apphttp.RequestHandler, mongo db.DB, fetcher *content.EnrichedContentFetcher) {
+	healthService := newHealthService(&healthConfig{appSystemCode: appSystemCode, appName: appName, port: port, db: mongo, enrichedContentFetcher: fetcher})
 
 	serveMux := http.NewServeMux()
 
