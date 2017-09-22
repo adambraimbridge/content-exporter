@@ -72,33 +72,46 @@ func NewJobPool(nrOfWorkers int) *JobPool {
 	}
 }
 
-func (p *JobPool) GetRunningJobs() []*Job {
+func (p *JobPool) GetRunningJobs() []Job {
 	p.RLock()
 	defer p.RUnlock()
-	var jobs []*Job
+	var jobs []Job
 	for _, job := range p.jobs {
 		if job.Status == RUNNING {
-			jobs = append(jobs, job)
+			jobs = append(jobs, job.Copy())
 		}
 	}
 	return jobs
 }
 
-func (p *JobPool) GetJob(jobID string) (*Job, error) {
+func (p *JobPool) GetJob(jobID string) (Job, error) {
 	p.RLock()
 	defer p.RUnlock()
 	job, ok := p.jobs[jobID]
 	if !ok {
 		return nil, fmt.Errorf("Job %v not found", jobID)
 	}
-	return job, nil
+	return job.Copy(), nil
 }
+
 
 func (p *JobPool) AddJob(job *Job) {
 	if job != nil {
 		p.Lock()
 		p.jobs[job.ID] = job
 		p.Unlock()
+	}
+}
+
+func (job *Job) Copy() Job {
+	job.Lock()
+	defer job.Unlock()
+	return Job{
+		Progress:job.Progress,
+		Status:job.Status,
+		ID:job.ID,
+		Count:job.Count,
+		Failed:job.Failed,
 	}
 }
 
