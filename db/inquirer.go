@@ -2,23 +2,20 @@ package db
 
 import (
 	"strings"
+	"github.com/Financial-Times/content-exporter/service"
 )
 
 const defaultDate = "0000-00-00"
 
 type Inquirer interface {
-	Inquire(collection string) (chan Content, error, int)
+	Inquire(collection string) (chan service.Content, error, int)
 }
 
 type MongoInquirer struct {
 	Mongo DB
 }
 
-type Content struct {
-	Uuid, Date string
-}
-
-func (m *MongoInquirer) Inquire(collection string) (chan Content, error, int) {
+func (m *MongoInquirer) Inquire(collection string) (chan service.Content, error, int) {
 	tx, err := m.Mongo.Open()
 
 	if err != nil {
@@ -30,7 +27,7 @@ func (m *MongoInquirer) Inquire(collection string) (chan Content, error, int) {
 		return nil, err, 0
 	}
 
-	docs := make(chan Content, 8)
+	docs := make(chan service.Content, 8)
 
 	go func() {
 
@@ -59,7 +56,7 @@ func (m *MongoInquirer) Inquire(collection string) (chan Content, error, int) {
 			if date == "" {
 				date = defaultDate
 			}
-			docs <- Content{uuid, date}
+			docs <- service.Content{uuid, date}
 		}
 	}()
 

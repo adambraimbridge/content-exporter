@@ -12,7 +12,7 @@ type Uploader interface {
 }
 
 type S3Uploader struct {
-	Client      HttpClient
+	Client      Client
 	S3WriterURL string
 }
 

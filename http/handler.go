@@ -1,22 +1,21 @@
-package service
+package http
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/db"
 	"github.com/Financial-Times/transactionid-utils-go"
 	"github.com/gorilla/mux"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	"github.com/Financial-Times/content-exporter/service"
 )
 
 type RequestHandler struct {
-	JobPool  *JobPool
+	JobPool  *service.JobPool
 	Inquirer db.Inquirer
-	Exporter content.Exporter
-	Uploader content.Uploader
+	ContentExporter *service.ContentExporter
 }
 
 func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.Request) {
@@ -33,9 +32,9 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 	log.Infof("Nr of UUIDs found: %v", count)
-	job := &job{ID: uuid.New(), docIds: docs, Count: count, nrWorker: handler.JobPool.NrOfConcurrentWorkers, Status: RUNNING}
+	job := &service.Job{ID: uuid.New(), DocIds: docs, Count: count, NrWorker: handler.JobPool.NrOfConcurrentWorkers, Status: service.RUNNING}
 	handler.JobPool.AddJob(job)
-	go job.Run(handler, tid, handler.HandleContent)
+	go job.RunFullExport(tid, handler.ContentExporter.HandleContent)
 
 	writer.WriteHeader(http.StatusAccepted)
 	writer.Header().Add("Content-Type", "application/json")
@@ -91,17 +90,3 @@ func (handler *RequestHandler) GetRunningJobs(writer http.ResponseWriter, reques
 
 }
 
-func (handler *RequestHandler) HandleContent(tid string, doc db.Content) error {
-	payload, err := handler.Exporter.GetContent(doc.Uuid, tid)
-	if err != nil {
-		log.Errorf("Error by getting content for %v: %v\n", doc.Uuid, err)
-		return err
-	}
-
-	err = handler.Uploader.Upload(payload, tid, doc.Uuid, doc.Date)
-	if err != nil {
-		log.Errorf("Error by uploading content for %v: %v\n", doc.Uuid, err)
-		return err
-	}
-	return nil
-}

@@ -6,18 +6,23 @@ import (
 	"net/http"
 )
 
-type Exporter interface {
+type Client interface {
+	Do(req *http.Request) (resp *http.Response, err error)
+}
+
+
+type Fetcher interface {
 	GetContent(uuid, tid string) (map[string]interface{}, error)
 }
 
-type EnrichedContentExporter struct {
-	Client              HttpClient
+type EnrichedContentFetcher struct {
+	Client              Client
 	EnrichedContentURL  string
 	XPolicyHeaderValues string
-	Authorization string
+	Authorization       string
 }
 
-func (e *EnrichedContentExporter) GetContent(uuid, tid string) (map[string]interface{}, error) {
+func (e *EnrichedContentFetcher) GetContent(uuid, tid string) (map[string]interface{}, error) {
 	req, err := http.NewRequest("GET", e.EnrichedContentURL+uuid, nil)
 	if err != nil {
 		return nil, err

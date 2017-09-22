@@ -18,6 +18,7 @@ import (
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/db"
 	"github.com/Financial-Times/content-exporter/service"
+	apphttp "github.com/Financial-Times/content-exporter/http"
 	health "github.com/Financial-Times/go-fthealth/v1_1"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/sethgrid/pester"
@@ -119,11 +120,13 @@ func main() {
 		client.Concurrency = 1
 
 		go func() {
-			serveEndpoints(*appSystemCode, *appName, *port, service.RequestHandler{
+			serveEndpoints(*appSystemCode, *appName, *port, apphttp.RequestHandler{
 				JobPool:  service.NewJobPool(30),
 				Inquirer: &db.MongoInquirer{Mongo: mongo},
-				Exporter: &content.EnrichedContentExporter{Client: client, EnrichedContentURL: *enrichedContentURL, XPolicyHeaderValues: *xPolicyHeaderValues, Authorization: *authorization},
-				Uploader: &content.S3Uploader{Client: client, S3WriterURL: *s3WriterURL},
+				ContentExporter: &service.ContentExporter{
+					Fetcher: &content.EnrichedContentFetcher{Client: client, EnrichedContentURL: *enrichedContentURL, XPolicyHeaderValues: *xPolicyHeaderValues, Authorization: *authorization},
+					Uploader: &content.S3Uploader{Client: client, S3WriterURL: *s3WriterURL},
+				},
 			})
 		}()
 
@@ -136,7 +139,7 @@ func main() {
 	}
 }
 
-func serveEndpoints(appSystemCode string, appName string, port string, requestHandler service.RequestHandler) {
+func serveEndpoints(appSystemCode string, appName string, port string, requestHandler apphttp.RequestHandler) {
 	healthService := newHealthService(&healthConfig{appSystemCode: appSystemCode, appName: appName, port: port})
 
 	serveMux := http.NewServeMux()
