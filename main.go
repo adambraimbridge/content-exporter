@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/db"
-	"github.com/Financial-Times/content-exporter/service"
 	apphttp "github.com/Financial-Times/content-exporter/http"
+	"github.com/Financial-Times/content-exporter/service"
 	health "github.com/Financial-Times/go-fthealth/v1_1"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/sethgrid/pester"
@@ -70,11 +70,23 @@ func main() {
 		Desc:   "Base URL to enriched content endpoint",
 		EnvVar: "ENRICHED_CONTENT_BASE_URL",
 	})
+	enrichedContentHealthURL := app.String(cli.StringOpt{
+		Name:   "enrichedContentHealthURL",
+		Value:  "http://localhost:8080/__gtg",
+		Desc:   "Health URL to enriched content endpoint",
+		EnvVar: "ENRICHED_CONTENT_HEALTH_URL",
+	})
 	s3WriterBaseURL := app.String(cli.StringOpt{
 		Name:   "s3WriterBaseURL",
 		Value:  "http://localhost:8080",
 		Desc:   "Base URL to S3 writer endpoint",
 		EnvVar: "S3_WRITER_BASE_URL",
+	})
+	s3WriterHealthURL := app.String(cli.StringOpt{
+		Name:   "s3WriterHealthURL",
+		Value:  "http://localhost:8080/__gtg",
+		Desc:   "Base URL to S3 writer endpoint",
+		EnvVar: "S3_WRITER_HEALTH_URL",
 	})
 	xPolicyHeaderValues := app.String(cli.StringOpt{
 		Name:   "xPolicyHeaderValues",
@@ -120,15 +132,21 @@ func main() {
 		client.Concurrency = 1
 
 		go func() {
-			fetcher := &content.EnrichedContentFetcher{Client: client, EnrichedContentBaseURL: *enrichedContentBaseURL, XPolicyHeaderValues: *xPolicyHeaderValues, Authorization: *authorization}
+			fetcher := &content.EnrichedContentFetcher{Client: client,
+				EnrichedContentBaseURL:   *enrichedContentBaseURL,
+				EnrichedContentHealthURL: *enrichedContentHealthURL,
+				XPolicyHeaderValues:      *xPolicyHeaderValues,
+				Authorization:            *authorization,
+			}
+			uploader := &content.S3Uploader{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
 			serveEndpoints(*appSystemCode, *appName, *port, apphttp.RequestHandler{
 				JobPool:  service.NewJobPool(30),
 				Inquirer: &db.MongoInquirer{Mongo: mongo},
 				ContentExporter: &service.ContentExporter{
 					Fetcher:  fetcher,
-					Uploader: &content.S3Uploader{Client: client, S3WriterBaseURL: *s3WriterBaseURL},
+					Uploader: uploader,
 				},
-			}, mongo, fetcher)
+			}, mongo, fetcher, uploader)
 		}()
 
 		waitForSignal()
@@ -140,8 +158,9 @@ func main() {
 	}
 }
 
-func serveEndpoints(appSystemCode string, appName string, port string, requestHandler apphttp.RequestHandler, mongo db.DB, fetcher *content.EnrichedContentFetcher) {
-	healthService := newHealthService(&healthConfig{appSystemCode: appSystemCode, appName: appName, port: port, db: mongo, enrichedContentFetcher: fetcher})
+func serveEndpoints(appSystemCode string, appName string, port string, requestHandler apphttp.RequestHandler,
+	mongo db.DB, fetcher *content.EnrichedContentFetcher, uploader *content.S3Uploader) {
+	healthService := newHealthService(&healthConfig{appSystemCode: appSystemCode, appName: appName, port: port, db: mongo, enrichedContentFetcher: fetcher, s3Uploader: uploader})
 
 	serveMux := http.NewServeMux()
 

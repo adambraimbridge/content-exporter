@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"github.com/Financial-Times/service-status-go/httphandlers"
 )
 
 type Client interface {
@@ -20,6 +19,7 @@ type Fetcher interface {
 type EnrichedContentFetcher struct {
 	Client                 Client
 	EnrichedContentBaseURL string
+	EnrichedContentHealthURL string
 	XPolicyHeaderValues    string
 	Authorization          string
 }
@@ -57,18 +57,22 @@ func (e *EnrichedContentFetcher) GetContent(uuid, tid string) (map[string]interf
 
 }
 
-func (e *EnrichedContentFetcher) Ping() (string, error) {
-	req, err := http.NewRequest("GET", e.EnrichedContentBaseURL+httphandlers.GTGPath, nil)
+func (e *EnrichedContentFetcher) CheckHealth() (string, error) {
+	req, err := http.NewRequest("GET", e.EnrichedContentHealthURL, nil)
 	if err != nil {
-		return "Error in building request to check if the varnish is good to go", err
+		return "Error in building request to check if the enrichedContent fetcher is good to go", err
 	}
-
+	
+	if e.Authorization != "" {
+		req.Header.Add("Authorization", e.Authorization)
+	}
 	resp, err := e.Client.Do(req)
 	if err != nil {
-		return "Varnish is not good to go.", err
+		return "EnrichedContent fetcher is not good to go.", err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "Varnish is not good to go.", fmt.Errorf("GTG HTTP status code is %v", resp.StatusCode)
+		return "EnrichedContent fetcher is not good to go.", fmt.Errorf("GTG HTTP status code is %v", resp.StatusCode)
 	}
-	return "Varnish is good to go.", nil
+	return "EnrichedContent fetcher is good to go.", nil
 }

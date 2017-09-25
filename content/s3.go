@@ -16,6 +16,7 @@ type Uploader interface {
 type S3Uploader struct {
 	Client          Client
 	S3WriterBaseURL string
+	S3WriterHealthURL string
 }
 
 func (u *S3Uploader) Upload(content map[string]interface{}, tid, uuid, date string) error {
@@ -43,4 +44,21 @@ func (u *S3Uploader) Upload(content map[string]interface{}, tid, uuid, date stri
 	}
 
 	return nil
+}
+
+func (u *S3Uploader) CheckHealth() (string, error) {
+	req, err := http.NewRequest("GET", u.S3WriterHealthURL, nil)
+	if err != nil {
+		return "Error in building request to check if the S3 uploader is good to go", err
+	}
+
+	resp, err := u.Client.Do(req)
+	if err != nil {
+		return "S3 uploader is not good to go.", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "S3 uploader is not good to go.", fmt.Errorf("GTG HTTP status code is %v", resp.StatusCode)
+	}
+	return "S3 uploader is good to go.", nil
 }
