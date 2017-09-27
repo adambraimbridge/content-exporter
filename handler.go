@@ -1,21 +1,19 @@
-package http
+package main
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Financial-Times/content-exporter/db"
 	"github.com/Financial-Times/transactionid-utils-go"
 	"github.com/gorilla/mux"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"github.com/Financial-Times/content-exporter/service"
 )
 
 type RequestHandler struct {
-	JobPool  *service.JobPool
-	Inquirer db.Inquirer
-	ContentExporter *service.ContentExporter
+	JobPool         *JobPool
+	Inquirer        Inquirer
+	ContentExporter *ContentExporter
 }
 
 func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.Request) {
@@ -32,7 +30,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 	log.Infof("Nr of UUIDs found: %v", count)
-	job := &service.Job{ID: uuid.New(), DocIds: docs, Count: count, NrWorker: handler.JobPool.NrOfConcurrentWorkers, Status: service.RUNNING}
+	job := &Job{ID: uuid.New(), DocIds: docs, Count: count, NrWorker: handler.JobPool.NrOfConcurrentWorkers, Status: RUNNING}
 	handler.JobPool.AddJob(job)
 	go job.RunFullExport(tid, handler.ContentExporter.HandleContent)
 
@@ -89,4 +87,3 @@ func (handler *RequestHandler) GetRunningJobs(writer http.ResponseWriter, reques
 	}
 
 }
-

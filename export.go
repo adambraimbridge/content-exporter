@@ -1,10 +1,10 @@
-package service
+package main
 
 import (
 	"fmt"
+	"github.com/Financial-Times/content-exporter/content"
 	log "github.com/sirupsen/logrus"
 	"sync"
-	"github.com/Financial-Times/content-exporter/content"
 )
 
 type Content struct {
@@ -39,14 +39,14 @@ type Pool interface {
 
 type JobPool struct {
 	sync.RWMutex
-	jobs map[string]*Job
+	jobs                  map[string]*Job
 	NrOfConcurrentWorkers int
 }
 
 type State string
 
 const (
-	RUNNING State = "Running"
+	RUNNING  State = "Running"
 	FINISHED State = "Finished"
 )
 
@@ -56,13 +56,13 @@ type Runner func()
 type Job struct {
 	sync.RWMutex
 	wg       sync.WaitGroup
-	NrWorker int             `json:"-"`
-	DocIds   chan Content    `json:"-"`
-	ID       string          `json:"ID"`
-	Count    int             `json:"ApproximateCount,omitempty"`
-	Progress int             `json:"Progress,omitempty"`
-	Failed   []string        `json:"Failed,omitempty"`
-	Status   State      `json:"Status"`
+	NrWorker int          `json:"-"`
+	DocIds   chan Content `json:"-"`
+	ID       string       `json:"ID"`
+	Count    int          `json:"ApproximateCount,omitempty"`
+	Progress int          `json:"Progress,omitempty"`
+	Failed   []string     `json:"Failed,omitempty"`
+	Status   State        `json:"Status"`
 }
 
 func NewJobPool(nrOfWorkers int) *JobPool {
@@ -94,7 +94,6 @@ func (p *JobPool) GetJob(jobID string) (Job, error) {
 	return job.Copy(), nil
 }
 
-
 func (p *JobPool) AddJob(job *Job) {
 	if job != nil {
 		p.Lock()
@@ -107,11 +106,11 @@ func (job *Job) Copy() Job {
 	job.Lock()
 	defer job.Unlock()
 	return Job{
-		Progress:job.Progress,
-		Status:job.Status,
-		ID:job.ID,
-		Count:job.Count,
-		Failed:job.Failed,
+		Progress: job.Progress,
+		Status:   job.Status,
+		ID:       job.ID,
+		Count:    job.Count,
+		Failed:   job.Failed,
 	}
 }
 
@@ -128,14 +127,14 @@ func (job *Job) RunFullExport(tid string, export func(string, Content) error) {
 			return
 		}
 
-		worker <- struct{}{}  // Will block until worker is available to span up new goroutines
+		worker <- struct{}{} // Will block until worker is available to span up new goroutines
 
 		job.Progress++
 		job.wg.Add(1)
 		go func() {
 			defer job.wg.Done()
 			job.runExport(export, tid, doc)
-			<- worker
+			<-worker
 		}()
 	}
 }

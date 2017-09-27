@@ -1,12 +1,12 @@
-package db
+package main
 
 import (
 	"context"
-	"sync"
-	"time"
-	"gopkg.in/mgo.v2/bson"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"sync"
+	"time"
 )
 
 var expectedConnections = 1

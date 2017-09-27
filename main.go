@@ -16,13 +16,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Financial-Times/content-exporter/content"
-	"github.com/Financial-Times/content-exporter/db"
-	apphttp "github.com/Financial-Times/content-exporter/http"
-	"github.com/Financial-Times/content-exporter/service"
 	health "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/Financial-Times/kafka-client-go/kafka"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/sethgrid/pester"
 	"net"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -100,6 +99,35 @@ func main() {
 		Desc:   "Authorization for enrichedcontent endpoint",
 		EnvVar: "AUTHORIZATION",
 	})
+	consumerAddrs := app.String(cli.StringOpt{
+		Name:   "consumer_addr",
+		Value:  "",
+		Desc:   "Comma separated kafka hosts for message consuming.",
+		EnvVar: "KAFKA_ADDRS",
+	})
+	consumerGroupID := app.String(cli.StringOpt{
+		Name:   "consumer_group_id",
+		Value:  "",
+		Desc:   "Kafka qroup id used for message consuming.",
+		EnvVar: "GROUP_ID",
+	})
+	topic := app.String(cli.StringOpt{
+		Name:   "topic",
+		Value:  "",
+		Desc:   "Kafka topic to read from.",
+		EnvVar: "TOPIC",
+	})
+	delayForNotification := app.Int(cli.IntOpt{
+		Name:   "delayForNotification",
+		Value:  30,
+		Desc:   "Delay in seconds for notifications to being handled",
+		EnvVar: "DELAY_FOR_NOTIFICATION",
+	})
+	whitelist := app.String(cli.StringOpt{
+		Name:   "whitelist",
+		Desc:   `The whitelist for incoming notifications - i.e. ^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/content/[\w-]+.*$`,
+		EnvVar: "WHITELIST",
+	})
 
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] content-exporter is starting ")
@@ -109,11 +137,15 @@ func main() {
 			app.PrintHelp()
 			log.Fatalf("Mongo connection is not set correctly: %s", err.Error())
 		}
+		_, err := regexp.Compile(*whitelist)
+		if err != nil {
+			log.WithError(err).Fatal("Whitelist regex MUST compile!")
+		}
 	}
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s, Mongo connection: %s", *appSystemCode, *appName, *port, *mongos)
-		mongo := db.NewMongoDatabase(*mongos, 100)
+		mongo := NewMongoDatabase(*mongos, 100)
 
 		tr := &http.Transport{
 			MaxIdleConnsPerHost: 128,
@@ -131,26 +163,63 @@ func main() {
 		client.MaxRetries = 3
 		client.Concurrency = 1
 
+		consumerConfig := kafka.DefaultConsumerConfig()
+		messageConsumer, err := kafka.NewConsumer(*consumerAddrs, *consumerGroupID, []string{*topic}, consumerConfig)
+		if err != nil {
+			log.WithError(err).Fatal("Cannot create Kafka client")
+		}
+
+		pool := NewJobPool(30)
+
+		fetcher := &content.EnrichedContentFetcher{Client: client,
+			EnrichedContentBaseURL:   *enrichedContentBaseURL,
+			EnrichedContentHealthURL: *enrichedContentHealthURL,
+			XPolicyHeaderValues:      *xPolicyHeaderValues,
+			Authorization:            *authorization,
+		}
+		uploader := &content.S3Uploader{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
+		exporter := &ContentExporter{
+			Fetcher:  fetcher,
+			Uploader: uploader,
+		}
+
+		whitelistR, err := regexp.Compile(*whitelist)
+		if err != nil {
+			log.WithError(err).Fatal("Whitelist regex MUST compile!")
+		}
+
+		queueHandler := &KafkaMessageHandler{
+			ContentExporter: exporter,
+			Delay:           *delayForNotification,
+			MessageConsumer: messageConsumer,
+			WhiteListRegex:  whitelistR,
+		}
+		messageConsumer.StartListening(queueHandler.HandleMessage)
+
 		go func() {
-			fetcher := &content.EnrichedContentFetcher{Client: client,
-				EnrichedContentBaseURL:   *enrichedContentBaseURL,
-				EnrichedContentHealthURL: *enrichedContentHealthURL,
-				XPolicyHeaderValues:      *xPolicyHeaderValues,
-				Authorization:            *authorization,
-			}
-			uploader := &content.S3Uploader{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
-			serveEndpoints(*appSystemCode, *appName, *port, apphttp.RequestHandler{
-				JobPool:  service.NewJobPool(30),
-				Inquirer: &db.MongoInquirer{Mongo: mongo},
-				ContentExporter: &service.ContentExporter{
-					Fetcher:  fetcher,
-					Uploader: uploader,
-				},
-			}, mongo, fetcher, uploader)
+			healthService := newHealthService(&healthConfig{
+				appSystemCode: *appSystemCode,
+				appName:       *appName,
+				port:          *port,
+				db:            mongo,
+				enrichedContentFetcher: fetcher,
+				s3Uploader:             uploader,
+				queueHandler:           queueHandler,
+			})
+
+			serveEndpoints(*appSystemCode, *appName, *port, RequestHandler{
+				JobPool:         pool,
+				Inquirer:        &MongoInquirer{Mongo: mongo},
+				ContentExporter: exporter,
+			}, healthService)
 		}()
 
 		waitForSignal()
+		messageConsumer.Shutdown()
+		log.Infoln("Gracefully shut down")
+
 	}
+
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Errorf("App could not start, error=[%s]\n", err)
@@ -158,9 +227,8 @@ func main() {
 	}
 }
 
-func serveEndpoints(appSystemCode string, appName string, port string, requestHandler apphttp.RequestHandler,
-	mongo db.DB, fetcher *content.EnrichedContentFetcher, uploader *content.S3Uploader) {
-	healthService := newHealthService(&healthConfig{appSystemCode: appSystemCode, appName: appName, port: port, db: mongo, enrichedContentFetcher: fetcher, s3Uploader: uploader})
+func serveEndpoints(appSystemCode string, appName string, port string, requestHandler RequestHandler,
+	healthService *healthService) {
 
 	serveMux := http.NewServeMux()
 
