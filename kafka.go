@@ -100,10 +100,11 @@ func (h *KafkaMessageHandler) HandleMessage(queueMsg kafka.FTMessage) error {
 
 	if evType == UPDATE {
 		time.Sleep(time.Duration(h.Delay) * time.Second)
+		log.WithField("transaction_id", tid).WithField("uuid", doc.Uuid).Info("UPDATE event received")
 		h.ContentExporter.HandleContent(tid, doc)
 	} else if evType == DELETE {
 		//TODO handle delete event
-		log.WithField("transaction_id", tid).Info("DELETE event received")
+		log.WithField("transaction_id", tid).WithField("uuid", doc.Uuid).Info("DELETE event received")
 		//h.ContentExporter.Uploader.Delete(doc.Uuid)
 	}
 	return nil
