@@ -99,6 +99,7 @@ func (h *KafkaMessageHandler) ConsumeMessages() {
 	for {
 		select {
 		case locked := <-h.locked:
+			log.Infof("LOCK signal received: %v...", locked)
 			if locked {
 				h.stopConsuming()
 			} else {

@@ -20,7 +20,7 @@ type Locker struct {
 type RequestHandler struct {
 	FullExporter *FullExporter
 	Inquirer     Inquirer
-	Locker
+	*Locker
 }
 
 func NewRequestHandler(fullExporter *FullExporter, mongo DB) *RequestHandler {
@@ -30,7 +30,7 @@ func NewRequestHandler(fullExporter *FullExporter, mongo DB) *RequestHandler {
 	return &RequestHandler{
 		FullExporter: fullExporter,
 		Inquirer:     &MongoInquirer{Mongo: mongo},
-		Locker: Locker{
+		Locker: &Locker{
 			locked: lockedCh,
 			acked:  ackedCh,
 			quit:   quitCh,
@@ -43,7 +43,15 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 
 	tid := transactionidutils.GetTransactionIDFromRequest(request)
 
-	handler.Locker.locked <- true
+	select {
+	case handler.Locker.locked <- true:
+		log.Info("Lock initiated")
+	case <-time.After(time.Second * 3):
+		msg := "Lock initiation timed out"
+		log.Infof(msg)
+		http.Error(writer, msg, http.StatusServiceUnavailable)
+		return
+	}
 
 	select {
 	case <-handler.Locker.acked:
