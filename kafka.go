@@ -115,7 +115,11 @@ func (h *KafkaMessageHandler) ConsumeMessages() {
 			} else {
 				h.startConsuming()
 			}
-			h.Locker.acked <- struct{}{}
+			select {
+			case h.Locker.acked <- struct{}{}:
+				log.Infof("LOCK acked")
+				case <-time.After(time.Second * 2):
+			}
 		case <-h.quit:
 			log.Infof("QUIT signal received...")
 			return
