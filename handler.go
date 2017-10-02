@@ -61,10 +61,6 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	select {
 	case <-handler.Locker.acked:
 		log.Info("Locker acquired")
-		defer func() {
-			log.Info("Locker released")
-			handler.Locker.locked <- false
-		}()
 	case <-time.After(time.Second * 15):
 		msg := "Stopping kafka consumption timed out"
 		log.Infof(msg)
@@ -76,6 +72,10 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	handler.FullExporter.AddJob(job)
 
 	go func() {
+		defer func() {
+			log.Info("Locker released")
+			handler.Locker.locked <- false
+		}()
 		log.Infoln("Calling mongo")
 		docs, err, count := handler.Inquirer.Inquire("content")
 		if err != nil {
