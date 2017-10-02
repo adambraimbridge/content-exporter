@@ -103,7 +103,11 @@ func (h *KafkaMessageHandler) stopConsuming() {
 	if h.running {
 		h.running = false
 		h.messageConsumer.Shutdown()
-		log.Infof("DEBUG Shutdown called: %+v", h.messageConsumer)
+		log.Infof("DEBUG Shutdown called, but seems that it's still working :-/ : %+v", h.messageConsumer)
+		time.Sleep(time.Second * 2)
+		h.messageConsumer.Shutdown()
+		log.Info("DEBUG Shutdown called again")
+		
 	}
 }
 
