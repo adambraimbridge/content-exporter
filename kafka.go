@@ -88,18 +88,22 @@ func (msg NotificationQueueMessage) TransactionID() string {
 func (h *KafkaMessageHandler) startConsuming() {
 	h.Lock()
 	defer h.Unlock()
+	log.Infof("DEBUG startConsuming")
 	if !h.running {
 		h.running = true
 		h.messageConsumer.StartListening(h.handleMessage)
+		log.Infof("DEBUG StartListening called")
 	}
 }
 
 func (h *KafkaMessageHandler) stopConsuming() {
 	h.Lock()
 	defer h.Unlock()
+	log.Infof("DEBUG stopConsuming")
 	if h.running {
 		h.running = false
 		h.messageConsumer.Shutdown()
+		log.Infof("DEBUG Shutdown called")
 	}
 }
 
@@ -112,14 +116,14 @@ func (h *KafkaMessageHandler) ConsumeMessages() {
 			log.Infof("LOCK signal received: %v...", locked)
 			if locked {
 				h.stopConsuming()
-			} else {
-				h.startConsuming()
-			}
-			select {
-			case h.Locker.acked <- struct{}{}:
-				log.Infof("LOCK acked")
+				select {
+				case h.Locker.acked <- struct{}{}:
+					log.Infof("LOCK acked")
 				case <-time.After(time.Second * 3):
 					log.Infof("LOCK acking timed out. Maybe initiator quit already?")
+				}
+			} else {
+				h.startConsuming()
 			}
 		case <-h.quit:
 			log.Infof("QUIT signal received...")
