@@ -118,7 +118,7 @@ func (h *KafkaMessageHandler) ConsumeMessages() {
 			select {
 			case h.Locker.acked <- struct{}{}:
 				log.Infof("LOCK acked")
-				case <-time.After(time.Second * 2):
+				case <-time.After(time.Second * 3):
 					log.Infof("LOCK acking timed out. Maybe initiator quit already?")
 			}
 		case <-h.quit:
