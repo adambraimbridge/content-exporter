@@ -17,24 +17,29 @@ type Locker struct {
 	quit   chan struct{}
 }
 
+func NewLocker() *Locker {
+	lockedCh := make(chan bool)
+	ackedCh := make(chan struct{})
+	quitCh := make(chan struct{})
+	return &Locker{
+		locked: lockedCh,
+		acked:  ackedCh,
+		quit:   quitCh,
+	}
+}
+
 type RequestHandler struct {
 	FullExporter *FullExporter
 	Inquirer     Inquirer
 	*Locker
 }
 
-func NewRequestHandler(fullExporter *FullExporter, mongo DB) *RequestHandler {
-	lockedCh := make(chan bool)
-	ackedCh := make(chan struct{})
-	quitCh := make(chan struct{})
+func NewRequestHandler(fullExporter *FullExporter, mongo DB, locker *Locker) *RequestHandler {
+
 	return &RequestHandler{
 		FullExporter: fullExporter,
 		Inquirer:     &MongoInquirer{Mongo: mongo},
-		Locker: &Locker{
-			locked: lockedCh,
-			acked:  ackedCh,
-			quit:   quitCh,
-		},
+		Locker:       locker,
 	}
 }
 

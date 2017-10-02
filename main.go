@@ -187,13 +187,8 @@ func main() {
 		if err != nil {
 			log.WithError(err).Fatal("Whitelist regex MUST compile!")
 		}
-
-		queueHandler := &KafkaMessageHandler{
-			ContentExporter: exporter,
-			Delay:           *delayForNotification,
-			messageConsumer: messageConsumer,
-			WhiteListRegex:  whitelistR,
-		}
+		locker := NewLocker()
+		queueHandler := NewKafkaMessageHandler(exporter, *delayForNotification, messageConsumer, whitelistR, locker)
 		go queueHandler.ConsumeMessages()
 
 		go func() {
@@ -207,7 +202,7 @@ func main() {
 				queueHandler:           queueHandler,
 			})
 
-			serveEndpoints(*appSystemCode, *appName, *port, NewRequestHandler(fullExporter, mongo), healthService)
+			serveEndpoints(*appSystemCode, *appName, *port, NewRequestHandler(fullExporter, mongo, locker), healthService)
 		}()
 
 		waitForSignal()

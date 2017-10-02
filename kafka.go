@@ -25,9 +25,19 @@ type KafkaMessageHandler struct {
 	ContentExporter *ContentExporter
 	Delay           int
 	WhiteListRegex  *regexp.Regexp
-	Locker
+	*Locker
 	sync.RWMutex
 	running bool
+}
+
+func NewKafkaMessageHandler(exporter *ContentExporter, delayForNotification int, messageConsumer kafka.Consumer, whitelistR *regexp.Regexp, locker *Locker) *KafkaMessageHandler {
+	return &KafkaMessageHandler{
+		ContentExporter: exporter,
+		Delay:           delayForNotification,
+		messageConsumer: messageConsumer,
+		WhiteListRegex:  whitelistR,
+		Locker:          locker,
+	}
 }
 
 type NotificationQueueMessage struct {
@@ -98,14 +108,14 @@ func (h *KafkaMessageHandler) ConsumeMessages() {
 	defer h.stopConsuming()
 	for {
 		select {
-		case locked := <-h.locked:
+		case locked := <-h.Locker.locked:
 			log.Infof("LOCK signal received: %v...", locked)
 			if locked {
 				h.stopConsuming()
 			} else {
 				h.startConsuming()
 			}
-			h.acked <- struct{}{}
+			h.Locker.acked <- struct{}{}
 		case <-h.quit:
 			log.Infof("QUIT signal received...")
 			return
