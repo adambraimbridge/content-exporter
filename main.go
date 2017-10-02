@@ -169,8 +169,6 @@ func main() {
 			log.WithError(err).Fatal("Cannot create Kafka client")
 		}
 
-		pool := NewJobPool(30)
-
 		fetcher := &content.EnrichedContentFetcher{Client: client,
 			EnrichedContentBaseURL:   *enrichedContentBaseURL,
 			EnrichedContentHealthURL: *enrichedContentHealthURL,
@@ -178,10 +176,12 @@ func main() {
 			Authorization:            *authorization,
 		}
 		uploader := &content.S3Uploader{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
+
 		exporter := &ContentExporter{
 			Fetcher:  fetcher,
 			Uploader: uploader,
 		}
+		fullExporter := NewFullExporter(30, exporter)
 
 		whitelistR, err := regexp.Compile(*whitelist)
 		if err != nil {
@@ -191,10 +191,10 @@ func main() {
 		queueHandler := &KafkaMessageHandler{
 			ContentExporter: exporter,
 			Delay:           *delayForNotification,
-			MessageConsumer: messageConsumer,
+			messageConsumer: messageConsumer,
 			WhiteListRegex:  whitelistR,
 		}
-		messageConsumer.StartListening(queueHandler.HandleMessage)
+		go queueHandler.ConsumeMessages()
 
 		go func() {
 			healthService := newHealthService(&healthConfig{
@@ -207,15 +207,11 @@ func main() {
 				queueHandler:           queueHandler,
 			})
 
-			serveEndpoints(*appSystemCode, *appName, *port, RequestHandler{
-				JobPool:         pool,
-				Inquirer:        &MongoInquirer{Mongo: mongo},
-				ContentExporter: exporter,
-			}, healthService)
+			serveEndpoints(*appSystemCode, *appName, *port, NewRequestHandler(fullExporter, mongo), healthService)
 		}()
 
 		waitForSignal()
-		messageConsumer.Shutdown()
+		queueHandler.StopConsumingMessages()
 		log.Infoln("Gracefully shut down")
 
 	}
@@ -227,7 +223,7 @@ func main() {
 	}
 }
 
-func serveEndpoints(appSystemCode string, appName string, port string, requestHandler RequestHandler,
+func serveEndpoints(appSystemCode string, appName string, port string, requestHandler *RequestHandler,
 	healthService *healthService) {
 
 	serveMux := http.NewServeMux()

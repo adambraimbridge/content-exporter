@@ -31,52 +31,47 @@ func (e *ContentExporter) HandleContent(tid string, doc Content) error {
 	return nil
 }
 
-type Pool interface {
-	AddJob(job *Job)
-	GetJob(jobID string) (Job, error)
-	GetRunningJobs() []Job
-}
-
-type JobPool struct {
+type FullExporter struct {
 	sync.RWMutex
 	jobs                  map[string]*Job
-	NrOfConcurrentWorkers int
+	nrOfConcurrentWorkers int
+	*ContentExporter
 }
 
 type State string
 
 const (
+	STARTING State = "Starting"
 	RUNNING  State = "Running"
 	FINISHED State = "Finished"
 )
 
-//TODO use this to runExport handling
-type Runner func()
-
 type Job struct {
 	sync.RWMutex
-	wg       sync.WaitGroup
-	NrWorker int          `json:"-"`
-	DocIds   chan Content `json:"-"`
-	ID       string       `json:"ID"`
-	Count    int          `json:"ApproximateCount,omitempty"`
-	Progress int          `json:"Progress,omitempty"`
-	Failed   []string     `json:"Failed,omitempty"`
-	Status   State        `json:"Status"`
+	wg           sync.WaitGroup
+	NrWorker     int          `json:"-"`
+	DocIds       chan Content `json:"-"`
+	ID           string       `json:"ID"`
+	Count        int          `json:"ApproximateCount,omitempty"`
+	Progress     int          `json:"Progress,omitempty"`
+	Failed       []string     `json:"Failed,omitempty"`
+	Status       State        `json:"Status"`
+	ErrorMessage string       `json:"ErrorMessage,omitempty"`
 }
 
-func NewJobPool(nrOfWorkers int) *JobPool {
-	return &JobPool{
+func NewFullExporter(nrOfWorkers int, exporter *ContentExporter) *FullExporter {
+	return &FullExporter{
 		jobs: make(map[string]*Job),
-		NrOfConcurrentWorkers: nrOfWorkers,
+		nrOfConcurrentWorkers: nrOfWorkers,
+		ContentExporter:       exporter,
 	}
 }
 
-func (p *JobPool) GetRunningJobs() []Job {
-	p.RLock()
-	defer p.RUnlock()
+func (fe *FullExporter) GetRunningJobs() []Job {
+	fe.RLock()
+	defer fe.RUnlock()
 	var jobs []Job
-	for _, job := range p.jobs {
+	for _, job := range fe.jobs {
 		if job.Status == RUNNING {
 			jobs = append(jobs, job.Copy())
 		}
@@ -84,21 +79,21 @@ func (p *JobPool) GetRunningJobs() []Job {
 	return jobs
 }
 
-func (p *JobPool) GetJob(jobID string) (Job, error) {
-	p.RLock()
-	defer p.RUnlock()
-	job, ok := p.jobs[jobID]
+func (fe *FullExporter) GetJob(jobID string) (Job, error) {
+	fe.RLock()
+	defer fe.RUnlock()
+	job, ok := fe.jobs[jobID]
 	if !ok {
 		return Job{}, fmt.Errorf("Job %v not found", jobID)
 	}
 	return job.Copy(), nil
 }
 
-func (p *JobPool) AddJob(job *Job) {
+func (fe *FullExporter) AddJob(job *Job) {
 	if job != nil {
-		p.Lock()
-		p.jobs[job.ID] = job
-		p.Unlock()
+		fe.Lock()
+		fe.jobs[job.ID] = job
+		fe.Unlock()
 	}
 }
 
@@ -116,6 +111,7 @@ func (job *Job) Copy() Job {
 
 func (job *Job) RunFullExport(tid string, export func(string, Content) error) {
 	log.Infof("Job started: %v", job.ID)
+	job.Status = RUNNING
 	worker := make(chan struct{}, job.NrWorker)
 	for {
 		doc, ok := <-job.DocIds
@@ -133,16 +129,12 @@ func (job *Job) RunFullExport(tid string, export func(string, Content) error) {
 		job.wg.Add(1)
 		go func() {
 			defer job.wg.Done()
-			job.runExport(export, tid, doc)
+			if err := export(tid, doc); err != nil {
+				job.Lock()
+				job.Failed = append(job.Failed, doc.Uuid)
+				job.Unlock()
+			}
 			<-worker
 		}()
-	}
-}
-
-func (job *Job) runExport(export func(string, Content) error, tid string, doc Content) {
-	if err := export(tid, doc); err != nil {
-		job.Lock()
-		job.Failed = append(job.Failed, doc.Uuid)
-		job.Unlock()
 	}
 }

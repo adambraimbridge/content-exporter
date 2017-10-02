@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,10 +21,13 @@ type MessageQueueHandler interface {
 }
 
 type KafkaMessageHandler struct {
-	MessageConsumer kafka.Consumer
+	messageConsumer kafka.Consumer
 	ContentExporter *ContentExporter
 	Delay           int
 	WhiteListRegex  *regexp.Regexp
+	Locker
+	sync.RWMutex
+	running bool
 }
 
 type NotificationQueueMessage struct {
@@ -71,8 +75,54 @@ func (msg NotificationQueueMessage) TransactionID() string {
 	return msg.Headers["X-Request-Id"]
 }
 
-func (h *KafkaMessageHandler) HandleMessage(queueMsg kafka.FTMessage) error {
-	log.Infof("Received message")
+func (h *KafkaMessageHandler) startConsuming() {
+	h.Lock()
+	defer h.Unlock()
+	if !h.running {
+		h.running = true
+		h.messageConsumer.StartListening(h.handleMessage)
+	}
+}
+
+func (h *KafkaMessageHandler) stopConsuming() {
+	h.Lock()
+	defer h.Unlock()
+	if h.running {
+		h.running = false
+		h.messageConsumer.Shutdown()
+	}
+}
+
+func (h *KafkaMessageHandler) ConsumeMessages() {
+	h.startConsuming()
+	defer h.stopConsuming()
+	for {
+		select {
+		case locked := <-h.locked:
+			if locked {
+				h.stopConsuming()
+			} else {
+				h.startConsuming()
+			}
+			h.acked <- struct{}{}
+		case <-h.quit:
+			log.Infof("QUIT signal received...")
+			return
+		}
+	}
+}
+
+func (h *KafkaMessageHandler) StopConsumingMessages() {
+	h.quit <- struct{}{}
+	for {
+		if !h.running {
+			return
+		}
+		time.Sleep(time.Millisecond * 100)
+	}
+}
+
+func (h *KafkaMessageHandler) handleMessage(queueMsg kafka.FTMessage) error {
 	msg := NotificationQueueMessage{queueMsg}
 
 	pubEvent, err := msg.ToPublicationEvent()
@@ -111,7 +161,7 @@ func (h *KafkaMessageHandler) HandleMessage(queueMsg kafka.FTMessage) error {
 }
 
 func (h *KafkaMessageHandler) CheckHealth() (string, error) {
-	if err := h.MessageConsumer.ConnectivityCheck(); err != nil {
+	if err := h.messageConsumer.ConnectivityCheck(); err != nil {
 		return "Kafka is not good to go.", err
 	}
 	return "Kafka is good to go.", nil
