@@ -28,6 +28,7 @@ type KafkaMessageHandler struct {
 	*Locker
 	sync.RWMutex
 	running         bool
+	notifCh         chan Notification
 }
 
 func NewKafkaMessageHandler(exporter *ContentExporter, delayForNotification int, messageConsumer kafka.Consumer, whitelistR *regexp.Regexp, locker *Locker) *KafkaMessageHandler {
@@ -37,6 +38,7 @@ func NewKafkaMessageHandler(exporter *ContentExporter, delayForNotification int,
 		messageConsumer: messageConsumer,
 		WhiteListRegex:  whitelistR,
 		Locker:          locker,
+		notifCh: make(chan Notification, 30),
 	}
 }
 
@@ -109,7 +111,10 @@ func (h *KafkaMessageHandler) stopConsuming() {
 
 func (h *KafkaMessageHandler) ConsumeMessages() {
 	h.messageConsumer.StartListening(h.handleMessage)
+	go h.handleNotification()
 	h.startConsuming()
+	defer h.stopConsuming()
+	defer close(h.notifCh)
 	defer h.messageConsumer.Shutdown()
 	for {
 		select {
@@ -128,6 +133,7 @@ func (h *KafkaMessageHandler) ConsumeMessages() {
 			}
 		case <-h.quit:
 			log.Infof("QUIT signal received...")
+
 			return
 		}
 	}
@@ -149,11 +155,11 @@ func (h *KafkaMessageHandler) handleMessage(queueMsg kafka.FTMessage) error {
 	pubEvent, err := msg.ToPublicationEvent()
 	tid := msg.TransactionID()
 	if !h.running {
-		log.Infof("PAUSED handling message. Current tid: %v", tid)
+		log.WithField("transaction_id", tid).Info("PAUSED handling message")
 		for !h.running {
-			time.Sleep(time.Millisecond * 100)
+			time.Sleep(time.Millisecond * 500)
 		}
-		log.Infof("PAUSE finished. Resuming handling messages. Current tid: %v", tid)
+		log.WithField("transaction_id", tid).Info("PAUSE finished. Resuming handling messages")
 	}
 	if err != nil {
 		log.WithField("transaction_id", tid).WithField("msg", msg.Body).WithError(err).Warn("Skipping event.")
@@ -170,29 +176,42 @@ func (h *KafkaMessageHandler) handleMessage(queueMsg kafka.FTMessage) error {
 		return nil
 	}
 
-	doc, evType, err := h.MapNotification(pubEvent)
+	notif, err := h.MapNotification(pubEvent)
 	if err != nil {
 		log.WithField("transaction_id", tid).WithField("msg", msg.Body).WithError(err).Warn("Skipping event: Cannot build notification for message.")
 		return err
 	}
-
-	logEntry := log.WithField("transaction_id", tid).WithField("uuid", doc.Uuid)
-	if evType == UPDATE {
-		logEntry.Infof("UPDATE event received. Waiting configured delay - %v second(s)", h.Delay)
-		select {
-		case <-time.After(time.Duration(h.Delay) * time.Second):
-			//TODO we might listen for graceful shutdowns
-		}
-		if err = h.ContentExporter.HandleContent(tid, doc); err != nil {
-			logEntry.WithError(err).Error("FAILED UPDATE event")
-		}
-	} else if evType == DELETE {
-		logEntry.Info("DELETE event received")
-		if err = h.ContentExporter.Uploader.Delete(doc.Uuid, tid); err != nil {
-			logEntry.WithError(err).Error("FAILED DELETE event")
-		}
-	}
+	notif.tid = tid
+	h.notifCh <- notif
 	return nil
+}
+
+func (h *KafkaMessageHandler) handleNotification() {
+	log.Info("Started handling notifications")
+	for notif := range h.notifCh {
+		if !h.running {
+			log.WithField("transaction_id", notif.tid).Info("PAUSED handling notification")
+			for !h.running {
+				time.Sleep(time.Millisecond * 500)
+			}
+			log.WithField("transaction_id", notif.tid).Info("PAUSE finished. Resuming handling notification")
+		}
+		logEntry := log.WithField("transaction_id", notif.tid).WithField("uuid", notif.content.Uuid)
+		if notif.evType == UPDATE {
+			logEntry.Infof("UPDATE event received. Waiting configured delay - %v second(s)", h.Delay)
+			time.Sleep(time.Duration(h.Delay) * time.Second)
+			if err := h.ContentExporter.HandleContent(notif.tid, notif.content); err != nil {
+				log.WithField("transaction_id", notif.tid).WithField("uuid", notif.content.Uuid).WithError(err).Error("FAILED UPDATE event")
+			}
+		} else if notif.evType == DELETE {
+			logEntry.Info("DELETE event received")
+			if err := h.ContentExporter.Uploader.Delete(notif.content.Uuid, notif.tid); err != nil {
+				logEntry.WithError(err).Error("FAILED DELETE event")
+			}
+		}
+
+	}
+	log.Info("Stopped handling notifications")
 }
 
 func (h *KafkaMessageHandler) CheckHealth() (string, error) {
@@ -205,11 +224,17 @@ func (h *KafkaMessageHandler) CheckHealth() (string, error) {
 // UUIDRegexp enables to check if a string matches a UUID
 var UUIDRegexp = regexp.MustCompile("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}")
 
+type Notification struct {
+	content Content
+	evType eventType
+	tid string
+}
+
 // MapNotification maps the given event to a new notification.
-func (h *KafkaMessageHandler) MapNotification(event PublicationEvent) (Content, eventType, error) {
+func (h *KafkaMessageHandler) MapNotification(event PublicationEvent) (Notification, error) {
 	UUID := UUIDRegexp.FindString(event.ContentURI)
 	if UUID == "" {
-		return Content{}, eventType(""), fmt.Errorf("ContentURI does not contain a UUID")
+		return Notification{content: Content{}, evType: eventType("")}, fmt.Errorf("ContentURI does not contain a UUID")
 	}
 
 	var evType eventType
@@ -225,8 +250,8 @@ func (h *KafkaMessageHandler) MapNotification(event PublicationEvent) (Content, 
 		}
 	}
 
-	return Content{
+	return Notification{content: Content{
 		Uuid: UUID,
 		Date: date,
-	}, evType, nil
+	}, evType: evType}, nil
 }
