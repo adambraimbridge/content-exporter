@@ -13,7 +13,7 @@ type Content struct {
 
 type ContentExporter struct {
 	Fetcher  content.Fetcher
-	Uploader content.Uploader
+	Uploader content.Updater
 }
 
 func (e *ContentExporter) HandleContent(tid string, doc Content) error {

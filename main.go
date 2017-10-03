@@ -175,7 +175,7 @@ func main() {
 			XPolicyHeaderValues:      *xPolicyHeaderValues,
 			Authorization:            *authorization,
 		}
-		uploader := &content.S3Uploader{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
+		uploader := &content.S3Updater{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
 
 		exporter := &ContentExporter{
 			Fetcher:  fetcher,

@@ -21,7 +21,7 @@ type healthConfig struct {
 	port                   string
 	db                     DB
 	enrichedContentFetcher *content.EnrichedContentFetcher
-	s3Uploader             *content.S3Uploader
+	s3Uploader             *content.S3Updater
 	queueHandler           *KafkaMessageHandler
 }
 

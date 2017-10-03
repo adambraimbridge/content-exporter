@@ -103,11 +103,11 @@ func (h *KafkaMessageHandler) stopConsuming() {
 	if h.running {
 		h.running = false
 		h.messageConsumer.Shutdown()
+		//TODO solve problem in library?
 		log.Infof("DEBUG Shutdown called, but seems that it's still working :-/ : %+v", h.messageConsumer)
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * 7)
 		h.messageConsumer.Shutdown()
 		log.Info("DEBUG Shutdown called again")
-		
 	}
 }
 
@@ -172,14 +172,21 @@ func (h *KafkaMessageHandler) handleMessage(queueMsg kafka.FTMessage) error {
 		return err
 	}
 
+	logEntry := log.WithField("transaction_id", tid).WithField("uuid", doc.Uuid)
 	if evType == UPDATE {
-		time.Sleep(time.Duration(h.Delay) * time.Second)
-		log.WithField("transaction_id", tid).WithField("uuid", doc.Uuid).Info("UPDATE event received")
-		h.ContentExporter.HandleContent(tid, doc)
+		logEntry.Infof("UPDATE event received. Waiting configured delay - %v second(s)", h.Delay)
+		select {
+		case <-time.After(time.Duration(h.Delay) * time.Second):
+			//TODO we might listen for graceful shutdowns
+		}
+		if err = h.ContentExporter.HandleContent(tid, doc); err != nil {
+			logEntry.WithError(err).Error("FAILED UPDATE event")
+		}
 	} else if evType == DELETE {
-		//TODO handle delete event
-		log.WithField("transaction_id", tid).WithField("uuid", doc.Uuid).Info("DELETE event received")
-		//h.ContentExporter.Uploader.Delete(doc.Uuid)
+		logEntry.Info("DELETE event received")
+		if err = h.ContentExporter.Uploader.Delete(doc.Uuid, tid); err != nil {
+			logEntry.WithError(err).Error("FAILED DELETE event")
+		}
 	}
 	return nil
 }

@@ -9,17 +9,38 @@ import (
 
 const s3WriterPath = "/content/"
 
-type Uploader interface {
+type Updater interface {
 	Upload(content map[string]interface{}, tid, uuid, date string) error
+	Delete(uuid, tid string) error
 }
 
-type S3Uploader struct {
+type S3Updater struct {
 	Client          Client
 	S3WriterBaseURL string
 	S3WriterHealthURL string
 }
 
-func (u *S3Uploader) Upload(content map[string]interface{}, tid, uuid, date string) error {
+func (u *S3Updater) Delete(uuid, tid string) error {
+	req, err := http.NewRequest("DELETE", u.S3WriterBaseURL+s3WriterPath+uuid, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("User-Agent", "UPP Content Exporter")
+	req.Header.Add("X-Request-Id", tid)
+
+	resp, err := u.Client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("Content RW S3 returned HTTP %v", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (u *S3Updater) Upload(content map[string]interface{}, tid, uuid, date string) error {
 	buf := new(bytes.Buffer)
 	err := json.NewEncoder(buf).Encode(content)
 	if err != nil {
@@ -46,7 +67,7 @@ func (u *S3Uploader) Upload(content map[string]interface{}, tid, uuid, date stri
 	return nil
 }
 
-func (u *S3Uploader) CheckHealth() (string, error) {
+func (u *S3Updater) CheckHealth() (string, error) {
 	req, err := http.NewRequest("GET", u.S3WriterHealthURL, nil)
 	if err != nil {
 		return "Error in building request to check if the S3 uploader is good to go", err
