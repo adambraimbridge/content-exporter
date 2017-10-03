@@ -27,7 +27,7 @@ type KafkaMessageHandler struct {
 	WhiteListRegex  *regexp.Regexp
 	*Locker
 	sync.RWMutex
-	running bool
+	running         bool
 }
 
 func NewKafkaMessageHandler(exporter *ContentExporter, delayForNotification int, messageConsumer kafka.Consumer, whitelistR *regexp.Regexp, locker *Locker) *KafkaMessageHandler {
@@ -91,7 +91,7 @@ func (h *KafkaMessageHandler) startConsuming() {
 	log.Infof("DEBUG startConsuming")
 	if !h.running {
 		h.running = true
-		h.messageConsumer.StartListening(h.handleMessage)
+		//h.messageConsumer.StartListening(h.handleMessage)
 		log.Infof("DEBUG StartListening called")
 	}
 }
@@ -102,12 +102,13 @@ func (h *KafkaMessageHandler) stopConsuming() {
 	log.Infof("DEBUG stopConsuming")
 	if h.running {
 		h.running = false
-		h.messageConsumer.Shutdown()
+		//h.messageConsumer.Shutdown()
 		log.Info("DEBUG Shutdown called")
 	}
 }
 
 func (h *KafkaMessageHandler) ConsumeMessages() {
+	h.messageConsumer.StartListening(h.handleMessage)
 	h.startConsuming()
 	defer h.stopConsuming()
 	for {
@@ -143,6 +144,13 @@ func (h *KafkaMessageHandler) StopConsumingMessages() {
 }
 
 func (h *KafkaMessageHandler) handleMessage(queueMsg kafka.FTMessage) error {
+	h.Lock()
+	if !h.running {
+		log.Infof("PAUSED handling message")
+		h.Unlock()
+		return fmt.Errorf("PAUSED")
+	}
+	h.Unlock()
 	msg := NotificationQueueMessage{queueMsg}
 
 	pubEvent, err := msg.ToPublicationEvent()
