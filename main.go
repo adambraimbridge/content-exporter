@@ -3,6 +3,8 @@ package main
 import (
 	"github.com/jawher/mow.cli"
 	log "github.com/sirupsen/logrus"
+	standardlog "log"
+
 	"net/http"
 	"os"
 	"os/signal"
@@ -24,6 +26,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"github.com/Shopify/sarama"
 )
 
 const appDescription = "Exports content from DB and sends to S3"
@@ -164,6 +167,7 @@ func main() {
 		client.Concurrency = 1
 
 		consumerConfig := kafka.DefaultConsumerConfig()
+		sarama.Logger = standardlog.New(os.Stdout, "[sarama] ", standardlog.LstdFlags)
 		messageConsumer, err := kafka.NewConsumer(*consumerAddrs, *consumerGroupID, []string{*topic}, consumerConfig)
 		if err != nil {
 			log.WithError(err).Fatal("Cannot create Kafka client")
