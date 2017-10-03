@@ -110,7 +110,7 @@ func (h *KafkaMessageHandler) stopConsuming() {
 func (h *KafkaMessageHandler) ConsumeMessages() {
 	h.messageConsumer.StartListening(h.handleMessage)
 	h.startConsuming()
-	defer h.stopConsuming()
+	defer h.messageConsumer.Shutdown()
 	for {
 		select {
 		case locked := <-h.Locker.locked:
@@ -148,13 +148,13 @@ func (h *KafkaMessageHandler) handleMessage(queueMsg kafka.FTMessage) error {
 
 	pubEvent, err := msg.ToPublicationEvent()
 	tid := msg.TransactionID()
-	h.Lock()
 	if !h.running {
-		log.Infof("PAUSED or skipped handling message for %v?", tid)
-		h.Unlock()
-		return fmt.Errorf("PAUSED or SKIPPED")
+		log.Infof("PAUSED handling message. Current tid: %v", tid)
+		for !h.running {
+			time.Sleep(time.Millisecond * 100)
+		}
+		log.Infof("PAUSE finished. Resuming handling messages. Current tid: %v", tid)
 	}
-	h.Unlock()
 	if err != nil {
 		log.WithField("transaction_id", tid).WithField("msg", msg.Body).WithError(err).Warn("Skipping event.")
 		return err
