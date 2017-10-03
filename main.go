@@ -122,7 +122,7 @@ func main() {
 	})
 	delayForNotification := app.Int(cli.IntOpt{
 		Name:   "delayForNotification",
-		Value:  30,
+		Value:  1,
 		Desc:   "Delay in seconds for notifications to being handled",
 		EnvVar: "DELAY_FOR_NOTIFICATION",
 	})

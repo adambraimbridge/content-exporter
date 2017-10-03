@@ -61,7 +61,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	select {
 	case <-handler.Locker.acked:
 		log.Info("Locker acquired")
-	case <-time.After(time.Second * 15):
+	case <-time.After(time.Second * 20):
 		msg := "Stopping kafka consumption timed out"
 		log.Infof(msg)
 		http.Error(writer, msg, http.StatusServiceUnavailable)
