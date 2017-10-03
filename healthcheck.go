@@ -31,7 +31,7 @@ func newHealthService(config *healthConfig) *healthService {
 		svc.MongoCheck(config.db),
 		svc.ReadEndpointCheck(),
 		svc.S3WriterCheck(),
-		svc.KafkaCheck(),
+		//svc.KafkaCheck(),
 	}
 	return svc
 }
