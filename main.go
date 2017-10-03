@@ -122,7 +122,7 @@ func main() {
 	})
 	delayForNotification := app.Int(cli.IntOpt{
 		Name:   "delayForNotification",
-		Value:  1,
+		Value:  30,
 		Desc:   "Delay in seconds for notifications to being handled",
 		EnvVar: "DELAY_FOR_NOTIFICATION",
 	})
@@ -167,6 +167,7 @@ func main() {
 		client.Concurrency = 1
 
 		consumerConfig := kafka.DefaultConsumerConfig()
+		consumerConfig.ChannelBufferSize = 1
 		sarama.Logger = standardlog.New(os.Stdout, "[sarama] ", standardlog.LstdFlags)
 		messageConsumer, err := kafka.NewConsumer(*consumerAddrs, *consumerGroupID, []string{*topic}, consumerConfig)
 		if err != nil {

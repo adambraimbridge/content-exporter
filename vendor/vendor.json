@@ -15,10 +15,10 @@
 			"revisionTime": "2017-08-09T12:10:07Z"
 		},
 		{
-			"checksumSHA1": "ZKi0orj580WKbmc/RXa3ugSbQPs=",
+			"checksumSHA1": "btAiomZSn2aIHMrntgSNId6Ndz8=",
 			"path": "github.com/Financial-Times/kafka-client-go/kafka",
-			"revision": "14b64cd1142fa75b3d75c6cb226faae1cd5b5141",
-			"revisionTime": "2017-10-03T11:40:44Z"
+			"revision": "b59f9bf80bff49e5db46178caca3891c5df184e1",
+			"revisionTime": "2017-10-03T12:18:28Z"
 		},
 		{
 			"checksumSHA1": "lQfsRf7gWYQDNoI3IOZuwNGUwRo=",
