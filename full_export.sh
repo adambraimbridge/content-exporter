@@ -5,7 +5,7 @@ AUTH=$2
 UUID_LIST=$3
 
 postBody=""
-if [ -n ${UUID_LIST} ]; then
+if [ -n "${UUID_LIST}" ]; then
 postBody=`{"ids":"${UUID_LIST}"}`
 fi
 jobResult=`curl -qSfs "${EXPORTER_URL}/export" -H "Authorization: ${AUTH}" -XPOST -d ${postBody} 2>/dev/null`
