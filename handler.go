@@ -67,6 +67,23 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		http.Error(writer, msg, http.StatusServiceUnavailable)
 		return
 	}
+
+	type IDs struct {
+		IDs []string `json:"ids"`
+	}
+	var result IDs
+	dec := json.NewDecoder(request.Body)
+	err := dec.Decode(&result)
+
+	if err != nil {
+		msg := "Parsing POST body failed"
+		log.Errorf(msg)
+		//http.Error(writer, msg, http.StatusBadRequest)
+		//return
+	} else {
+		log.Infof("DEBUG Parsing request body: %v", result)
+	}
+
 	jobID := uuid.New()
 	job := &Job{ID: jobID, NrWorker: handler.FullExporter.nrOfConcurrentWorkers, Status: STARTING}
 	handler.FullExporter.AddJob(job)
@@ -95,7 +112,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	writer.WriteHeader(http.StatusAccepted)
 	writer.Header().Add("Content-Type", "application/json")
 
-	err := json.NewEncoder(writer).Encode(job)
+	err = json.NewEncoder(writer).Encode(job)
 	if err != nil {
 		msg := fmt.Sprintf(`Failed to write job %v to response writer: "%v"`, job.ID, err)
 		log.Warn(msg)

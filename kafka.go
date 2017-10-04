@@ -38,7 +38,7 @@ func NewKafkaMessageHandler(exporter *ContentExporter, delayForNotification int,
 		messageConsumer: messageConsumer,
 		WhiteListRegex:  whitelistR,
 		Locker:          locker,
-		notifCh: make(chan Notification, 30),
+		notifCh: make(chan Notification, 30), //TODO when to close? is 30 as a buffer ok?
 	}
 }
 

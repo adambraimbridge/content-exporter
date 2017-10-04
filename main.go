@@ -92,37 +92,32 @@ func main() {
 	})
 	xPolicyHeaderValues := app.String(cli.StringOpt{
 		Name:   "xPolicyHeaderValues",
-		Value:  "",
 		Desc:   "Values for X-Policy header separated by comma, e.g. INCLUDE_RICH_CONTENT,EXPAND_IMAGES",
 		EnvVar: "X_POLICY_HEADER_VALUES",
 	})
 	authorization := app.String(cli.StringOpt{
 		Name:   "authorization",
-		Value:  "",
 		Desc:   "Authorization for enrichedcontent endpoint",
 		EnvVar: "AUTHORIZATION",
 	})
 	consumerAddrs := app.String(cli.StringOpt{
-		Name:   "consumer_addr",
-		Value:  "",
+		Name:   "kafka_addr",
 		Desc:   "Comma separated kafka hosts for message consuming.",
 		EnvVar: "KAFKA_ADDRS",
 	})
 	consumerGroupID := app.String(cli.StringOpt{
-		Name:   "consumer_group_id",
-		Value:  "",
+		Name:   "group_id",
 		Desc:   "Kafka qroup id used for message consuming.",
 		EnvVar: "GROUP_ID",
 	})
 	topic := app.String(cli.StringOpt{
 		Name:   "topic",
-		Value:  "",
 		Desc:   "Kafka topic to read from.",
 		EnvVar: "TOPIC",
 	})
 	delayForNotification := app.Int(cli.IntOpt{
 		Name:   "delayForNotification",
-		Value:  3,
+		Value:  30,
 		Desc:   "Delay in seconds for notifications to being handled",
 		EnvVar: "DELAY_FOR_NOTIFICATION",
 	})
@@ -130,6 +125,12 @@ func main() {
 		Name:   "whitelist",
 		Desc:   `The whitelist for incoming notifications - i.e. ^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/content/[\w-]+.*$`,
 		EnvVar: "WHITELIST",
+	})
+	logDebug := app.Bool(cli.BoolOpt{
+		Name:   "logDebug",
+		Value:  false,
+		Desc:   `The whitelist for incoming notifications - i.e. ^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/content/[\w-]+.*$`,
+		EnvVar: "LOG_DEBUG",
 	})
 
 	log.SetLevel(log.InfoLevel)
@@ -168,17 +169,21 @@ func main() {
 
 		consumerConfig := kafka.DefaultConsumerConfig()
 		consumerConfig.ChannelBufferSize = 1
-		sarama.Logger = standardlog.New(os.Stdout, "[sarama] ", standardlog.LstdFlags)
+
+		if *logDebug {
+			sarama.Logger = standardlog.New(os.Stdout, "[sarama] ", standardlog.LstdFlags)
+		}
+
 		messageConsumer, err := kafka.NewConsumer(*consumerAddrs, *consumerGroupID, []string{*topic}, consumerConfig)
 		if err != nil {
 			log.WithError(err).Fatal("Cannot create Kafka client")
 		}
 
 		fetcher := &content.EnrichedContentFetcher{Client: client,
-			EnrichedContentBaseURL:   *enrichedContentBaseURL,
-			EnrichedContentHealthURL: *enrichedContentHealthURL,
-			XPolicyHeaderValues:      *xPolicyHeaderValues,
-			Authorization:            *authorization,
+			EnrichedContentBaseURL:                        *enrichedContentBaseURL,
+			EnrichedContentHealthURL:                      *enrichedContentHealthURL,
+			XPolicyHeaderValues:                           *xPolicyHeaderValues,
+			Authorization:                                 *authorization,
 		}
 		uploader := &content.S3Updater{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
 
@@ -197,15 +202,16 @@ func main() {
 		go queueHandler.ConsumeMessages()
 
 		go func() {
-			healthService := newHealthService(&healthConfig{
-				appSystemCode: *appSystemCode,
-				appName:       *appName,
-				port:          *port,
-				db:            mongo,
-				enrichedContentFetcher: fetcher,
-				s3Uploader:             uploader,
-				queueHandler:           queueHandler,
-			})
+			healthService := newHealthService(
+				&healthConfig{
+					appSystemCode:          *appSystemCode,
+					appName:                *appName,
+					port:                   *port,
+					db:                     mongo,
+					enrichedContentFetcher: fetcher,
+					s3Uploader:             uploader,
+					queueHandler:           queueHandler,
+				})
 
 			serveEndpoints(*appSystemCode, *appName, *port, NewRequestHandler(fullExporter, mongo, locker), healthService)
 		}()
