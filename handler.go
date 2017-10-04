@@ -14,17 +14,14 @@ import (
 type Locker struct {
 	locked chan bool
 	acked  chan struct{}
-	quit   chan struct{}
 }
 
 func NewLocker() *Locker {
 	lockedCh := make(chan bool)
 	ackedCh := make(chan struct{})
-	quitCh := make(chan struct{})
 	return &Locker{
 		locked: lockedCh,
 		acked:  ackedCh,
-		quit:   quitCh,
 	}
 }
 
@@ -35,7 +32,6 @@ type RequestHandler struct {
 }
 
 func NewRequestHandler(fullExporter *FullExporter, mongo DB, locker *Locker) *RequestHandler {
-
 	return &RequestHandler{
 		FullExporter: fullExporter,
 		Inquirer:     &MongoInquirer{Mongo: mongo},

@@ -20,6 +20,20 @@ type MessageQueueHandler interface {
 	HandleMessage(queueMsg kafka.FTMessage) error
 }
 
+type Shutdowner struct {
+	quit             chan struct{}
+	cleanup          sync.Once
+	shutDownPrepared bool
+	shutDown bool
+}
+
+func NewShutdowner() *Shutdowner {
+	quitCh := make(chan struct{})
+	return &Shutdowner{
+		quit:   quitCh,
+	}
+}
+
 type KafkaMessageHandler struct {
 	messageConsumer kafka.Consumer
 	ContentExporter *ContentExporter
@@ -27,7 +41,8 @@ type KafkaMessageHandler struct {
 	WhiteListRegex  *regexp.Regexp
 	*Locker
 	sync.RWMutex
-	running         bool
+	paused          bool
+	*Shutdowner
 	notifCh         chan Notification
 }
 
@@ -39,6 +54,7 @@ func NewKafkaMessageHandler(exporter *ContentExporter, delayForNotification int,
 		WhiteListRegex:  whitelistR,
 		Locker:          locker,
 		notifCh: make(chan Notification, 30), //TODO when to close? is 30 as a buffer ok?
+		Shutdowner: NewShutdowner(),
 	}
 }
 
@@ -87,23 +103,23 @@ func (msg NotificationQueueMessage) TransactionID() string {
 	return msg.Headers["X-Request-Id"]
 }
 
-func (h *KafkaMessageHandler) startConsuming() {
+func (h *KafkaMessageHandler) resumeConsuming() {
 	h.Lock()
 	defer h.Unlock()
-	log.Infof("DEBUG startConsuming")
-	if !h.running {
-		h.running = true
+	log.Infof("DEBUG resumeConsuming")
+	if h.paused {
+		h.paused = false
 		//h.messageConsumer.StartListening(h.handleMessage)
 		log.Infof("DEBUG StartListening called")
 	}
 }
 
-func (h *KafkaMessageHandler) stopConsuming() {
+func (h *KafkaMessageHandler) pauseConsuming() {
 	h.Lock()
 	defer h.Unlock()
-	log.Infof("DEBUG stopConsuming")
-	if h.running {
-		h.running = false
+	log.Infof("DEBUG pauseConsuming")
+	if !h.paused {
+		h.paused = true
 		//h.messageConsumer.Shutdown()
 		log.Info("DEBUG Shutdown called")
 	}
@@ -112,16 +128,18 @@ func (h *KafkaMessageHandler) stopConsuming() {
 func (h *KafkaMessageHandler) ConsumeMessages() {
 	h.messageConsumer.StartListening(h.handleMessage)
 	go h.handleNotification()
-	h.startConsuming()
-	defer h.stopConsuming()
-	defer close(h.notifCh)
+
+	defer func() {
+		h.shutDownPrepared = true
+	}()
 	defer h.messageConsumer.Shutdown()
+
 	for {
 		select {
 		case locked := <-h.Locker.locked:
 			log.Infof("LOCK signal received: %v...", locked)
 			if locked {
-				h.stopConsuming()
+				h.pauseConsuming()
 				select {
 				case h.Locker.acked <- struct{}{}:
 					log.Infof("LOCK acked")
@@ -129,11 +147,10 @@ func (h *KafkaMessageHandler) ConsumeMessages() {
 					log.Infof("LOCK acking timed out. Maybe initiator quit already?")
 				}
 			} else {
-				h.startConsuming()
+				h.resumeConsuming()
 			}
 		case <-h.quit:
 			log.Infof("QUIT signal received...")
-
 			return
 		}
 	}
@@ -142,7 +159,7 @@ func (h *KafkaMessageHandler) ConsumeMessages() {
 func (h *KafkaMessageHandler) StopConsumingMessages() {
 	h.quit <- struct{}{}
 	for {
-		if !h.running {
+		if h.shutDown {
 			return
 		}
 		time.Sleep(time.Millisecond * 100)
@@ -154,9 +171,15 @@ func (h *KafkaMessageHandler) handleMessage(queueMsg kafka.FTMessage) error {
 
 	pubEvent, err := msg.ToPublicationEvent()
 	tid := msg.TransactionID()
-	if !h.running {
+	if h.shutDownPrepared {
+		h.cleanup.Do(func() {
+			close(h.notifCh)
+		})
+		return fmt.Errorf("Service is shutdown")
+	}
+	if h.paused {
 		log.WithField("transaction_id", tid).Info("PAUSED handling message")
-		for !h.running {
+		for h.paused {
 			time.Sleep(time.Millisecond * 500)
 		}
 		log.WithField("transaction_id", tid).Info("PAUSE finished. Resuming handling messages")
@@ -183,15 +206,21 @@ func (h *KafkaMessageHandler) handleMessage(queueMsg kafka.FTMessage) error {
 	}
 	notif.tid = tid
 	h.notifCh <- notif
+	if h.shutDownPrepared {
+		h.cleanup.Do(func() {
+			close(h.notifCh)
+		})
+	}
 	return nil
 }
 
 func (h *KafkaMessageHandler) handleNotification() {
 	log.Info("Started handling notifications")
 	for notif := range h.notifCh {
-		if !h.running {
+		log.Infof("DEBUG Len(notifCh) vs cap(notifCh) - %v vs %v", len(h.notifCh), cap(h.notifCh))
+		if h.paused {
 			log.WithField("transaction_id", notif.tid).Info("PAUSED handling notification")
-			for !h.running {
+			for h.paused {
 				time.Sleep(time.Millisecond * 500)
 			}
 			log.WithField("transaction_id", notif.tid).Info("PAUSE finished. Resuming handling notification")
@@ -212,6 +241,7 @@ func (h *KafkaMessageHandler) handleNotification() {
 
 	}
 	log.Info("Stopped handling notifications")
+	h.shutDown = true
 }
 
 func (h *KafkaMessageHandler) CheckHealth() (string, error) {
