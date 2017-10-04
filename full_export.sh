@@ -6,9 +6,9 @@ UUID_LIST=$3
 
 postBody=""
 if [ -n "${UUID_LIST}" ]; then
-postBody=`{"ids":"${UUID_LIST}"}`
+postBody="{\"ids\":\"${UUID_LIST}\"}"
 fi
-jobResult=`curl -qSfs "${EXPORTER_URL}/export" -H "Authorization: ${AUTH}" -XPOST -d ${postBody} 2>/dev/null`
+jobResult=`curl -qSfs "${EXPORTER_URL}/export" -H "Authorization: ${AUTH}" -XPOST -d "${postBody}" 2>/dev/null`
 if [ "$?" -ne 0 ]; then
   echo ">>Exporter service cannot be called successfully. Full export failed"
   exit 1
