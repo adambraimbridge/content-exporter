@@ -1,8 +1,14 @@
 #!/bin/bash
 
+EXPORTER_URL=$1
+AUTH=$2
+
+echo "EXPORTER_URL=${EXPORTER_URL}"
+echo "AUTH=${AUTH}"
+
 jobResult=`curl -qSfs "${EXPORTER_URL}/export" -H "Authorization: ${AUTH}" -XPOST 2>/dev/null`
 if [ "$?" -ne 0 ]; then
-  echo ">>Exporter service cannot be called successfully. Full export failed"
+  echo ">>Exporter service cannot be called successfully. Full export failed: ${jobResult}"
   exit 1
 else
   jobID=`echo "${jobResult}" | jq '.ID' | cut -d'"' -f2 2>/dev/null`
