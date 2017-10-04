@@ -76,7 +76,7 @@ func (tx *MongoTX) FindUUIDs(collectionID string) (Iterator, int, error) {
 	collection := tx.session.DB("upp-store").C(collectionID)
 
 	query, projection := findUUIDsQueryElements()
-	find := collection.Find(query).Select(projection).Batch(100).Limit(6000) //TODO remove limit
+	find := collection.Find(query).Select(projection).Batch(100) //TODO remove limit .Limit(6000)
 
 	count, err := find.Count() //after count returns new data may be added
 	iter := find.Iter()
