@@ -2,8 +2,13 @@
 
 EXPORTER_URL=$1
 AUTH=$2
+UUID_LIST=$3
 
-jobResult=`curl -qSfs "${EXPORTER_URL}/export" -H "Authorization: ${AUTH}" -XPOST 2>/dev/null`
+postBody=""
+if [ -n ${UUID_LIST} ]; then
+postBody=`{"ids":"${UUID_LIST}"}`
+fi
+jobResult=`curl -qSfs "${EXPORTER_URL}/export" -H "Authorization: ${AUTH}" -XPOST -d ${postBody} 2>/dev/null`
 if [ "$?" -ne 0 ]; then
   echo ">>Exporter service cannot be called successfully. Full export failed"
   exit 1

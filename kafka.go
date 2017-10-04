@@ -53,7 +53,7 @@ func NewKafkaMessageHandler(exporter *ContentExporter, delayForNotification int,
 		messageConsumer: messageConsumer,
 		WhiteListRegex:  whitelistR,
 		Locker:          locker,
-		notifCh: make(chan Notification, 30), //TODO when to close? is 30 as a buffer ok?
+		notifCh: make(chan Notification, 2), //TODO when to close? is 30 as a buffer ok?
 		Shutdowner: NewShutdowner(),
 	}
 }
@@ -106,22 +106,18 @@ func (msg NotificationQueueMessage) TransactionID() string {
 func (h *KafkaMessageHandler) resumeConsuming() {
 	h.Lock()
 	defer h.Unlock()
-	log.Infof("DEBUG resumeConsuming")
+	log.Debugf("DEBUG resumeConsuming")
 	if h.paused {
 		h.paused = false
-		//h.messageConsumer.StartListening(h.handleMessage)
-		log.Infof("DEBUG StartListening called")
 	}
 }
 
 func (h *KafkaMessageHandler) pauseConsuming() {
 	h.Lock()
 	defer h.Unlock()
-	log.Infof("DEBUG pauseConsuming")
+	log.Debugf("DEBUG pauseConsuming")
 	if !h.paused {
 		h.paused = true
-		//h.messageConsumer.Shutdown()
-		log.Info("DEBUG Shutdown called")
 	}
 }
 
@@ -216,25 +212,25 @@ func (h *KafkaMessageHandler) handleMessage(queueMsg kafka.FTMessage) error {
 
 func (h *KafkaMessageHandler) handleNotification() {
 	log.Info("Started handling notifications")
-	for notif := range h.notifCh {
-		log.Infof("DEBUG Len(notifCh) vs cap(notifCh) - %v vs %v", len(h.notifCh), cap(h.notifCh))
+	for n := range h.notifCh {
+		log.Debugf("DEBUG Len(notifCh) vs cap(notifCh) - %v vs %v", len(h.notifCh), cap(h.notifCh))
 		if h.paused {
-			log.WithField("transaction_id", notif.tid).Info("PAUSED handling notification")
+			log.WithField("transaction_id", n.tid).Info("PAUSED handling notification")
 			for h.paused {
 				time.Sleep(time.Millisecond * 500)
 			}
-			log.WithField("transaction_id", notif.tid).Info("PAUSE finished. Resuming handling notification")
+			log.WithField("transaction_id", n.tid).Info("PAUSE finished. Resuming handling notification")
 		}
-		logEntry := log.WithField("transaction_id", notif.tid).WithField("uuid", notif.content.Uuid)
-		if notif.evType == UPDATE {
+		logEntry := log.WithField("transaction_id", n.tid).WithField("uuid", n.content.Uuid)
+		if n.evType == UPDATE {
 			logEntry.Infof("UPDATE event received. Waiting configured delay - %v second(s)", h.Delay)
 			time.Sleep(time.Duration(h.Delay) * time.Second)
-			if err := h.ContentExporter.HandleContent(notif.tid, notif.content); err != nil {
-				log.WithField("transaction_id", notif.tid).WithField("uuid", notif.content.Uuid).WithError(err).Error("FAILED UPDATE event")
+			if err := h.ContentExporter.HandleContent(n.tid, n.content); err != nil {
+				log.WithField("transaction_id", n.tid).WithField("uuid", n.content.Uuid).WithError(err).Error("FAILED UPDATE event")
 			}
-		} else if notif.evType == DELETE {
+		} else if n.evType == DELETE {
 			logEntry.Info("DELETE event received")
-			if err := h.ContentExporter.Uploader.Delete(notif.content.Uuid, notif.tid); err != nil {
+			if err := h.ContentExporter.Uploader.Delete(n.content.Uuid, n.tid); err != nil {
 				logEntry.WithError(err).Error("FAILED DELETE event")
 			}
 		}

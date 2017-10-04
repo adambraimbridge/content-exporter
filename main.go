@@ -172,6 +172,7 @@ func main() {
 
 		if *logDebug {
 			sarama.Logger = standardlog.New(os.Stdout, "[sarama] ", standardlog.LstdFlags)
+			log.SetLevel(log.DebugLevel)
 		}
 
 		messageConsumer, err := kafka.NewConsumer(*consumerAddrs, *consumerGroupID, []string{*topic}, consumerConfig)
@@ -250,7 +251,13 @@ func serveEndpoints(appSystemCode string, appName string, port string, requestHa
 
 	serveMux.Handle("/", monitoringRouter)
 
-	server := &http.Server{Addr: ":" + port, Handler: serveMux}
+	server := &http.Server{
+		Addr: ":" + port,
+		Handler: serveMux,
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 
 	wg := sync.WaitGroup{}
 

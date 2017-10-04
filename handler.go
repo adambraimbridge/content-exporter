@@ -64,20 +64,17 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	type IDs struct {
-		IDs []string `json:"ids"`
-	}
-	var result IDs
+	var result map[string]interface{}
 	dec := json.NewDecoder(request.Body)
 	err := dec.Decode(&result)
 
 	if err != nil {
-		msg := "Parsing POST body failed"
-		log.Errorf(msg)
+		msg := "Parsing POST body failed: %v"
+		log.Errorf(msg, err)
 		//http.Error(writer, msg, http.StatusBadRequest)
 		//return
 	} else {
-		log.Infof("DEBUG Parsing request body: %v", result)
+		log.Debugf("DEBUG Parsing request body: %v", result)
 	}
 
 	jobID := uuid.New()
