@@ -47,6 +47,9 @@ func (e *EnrichedContentFetcher) GetContent(uuid, tid string) (map[string]interf
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("Access to content is forbidden. Skipping")
+		}
 		return nil, fmt.Errorf("EnrichedContent returned HTTP %v", resp.StatusCode)
 	}
 
