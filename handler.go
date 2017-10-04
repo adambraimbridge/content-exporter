@@ -74,7 +74,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		//http.Error(writer, msg, http.StatusBadRequest)
 		//return
 	} else {
-		log.Debugf("DEBUG Parsing request body: %v", result)
+		log.Infof("DEBUG Parsing request body: %v", result)
 	}
 
 	jobID := uuid.New()
