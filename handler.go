@@ -9,6 +9,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
+	"io/ioutil"
+	"strings"
 )
 
 type Locker struct {
@@ -64,9 +66,8 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 
+	body, err := ioutil.ReadAll(request.Body)
 	var result map[string]interface{}
-	dec := json.NewDecoder(request.Body)
-	err := dec.Decode(&result)
 
 	if err != nil {
 		msg := "Parsing POST body failed: %v"
@@ -74,7 +75,18 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		//http.Error(writer, msg, http.StatusBadRequest)
 		//return
 	} else {
+		json.Unmarshal(body, &result)
 		log.Infof("DEBUG Parsing request body: %v", result)
+		ids, ok :=result["ids"]
+		if ok {
+			idsString, ok := ids.(string)
+			if ok {
+				split := strings.Split(idsString, " ")
+				for _,id :=range split {
+					log.Infof("DEBUG id=%v", id)
+				}
+			}
+		}
 	}
 
 	jobID := uuid.New()
