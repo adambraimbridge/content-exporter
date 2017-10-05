@@ -7,10 +7,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
-	"net/http"
-	"time"
 	"io/ioutil"
+	"net/http"
 	"strings"
+	"time"
 )
 
 type Locker struct {
@@ -66,28 +66,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	body, err := ioutil.ReadAll(request.Body)
-	var result map[string]interface{}
-
-	if err != nil {
-		msg := "Parsing POST body failed: %v"
-		log.Errorf(msg, err)
-		//http.Error(writer, msg, http.StatusBadRequest)
-		//return
-	} else {
-		json.Unmarshal(body, &result)
-		log.Infof("DEBUG Parsing request body: %v", result)
-		ids, ok :=result["ids"]
-		if ok {
-			idsString, ok := ids.(string)
-			if ok {
-				split := strings.Split(idsString, " ")
-				for _,id :=range split {
-					log.Infof("DEBUG id=%v", id)
-				}
-			}
-		}
-	}
+	candidates := getCandidateUuids(request)
 
 	jobID := uuid.New()
 	job := &Job{ID: jobID, NrWorker: handler.FullExporter.nrOfConcurrentWorkers, Status: STARTING}
@@ -99,7 +78,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 			handler.Locker.locked <- false
 		}()
 		log.Infoln("Calling mongo")
-		docs, err, count := handler.Inquirer.Inquire("content")
+		docs, err, count := handler.Inquirer.Inquire("content", candidates)
 		if err != nil {
 			msg := fmt.Sprintf(`Failed to read IDs from mongo for %v! "%v"`, "content", err.Error())
 			log.Info(msg)
@@ -117,13 +96,39 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	writer.WriteHeader(http.StatusAccepted)
 	writer.Header().Add("Content-Type", "application/json")
 
-	err = json.NewEncoder(writer).Encode(job)
+	err := json.NewEncoder(writer).Encode(job)
 	if err != nil {
 		msg := fmt.Sprintf(`Failed to write job %v to response writer: "%v"`, job.ID, err)
 		log.Warn(msg)
 		fmt.Fprintf(writer, "{\"ID\": \"%v\"}", job.ID)
 		return
 	}
+}
+
+func getCandidateUuids(request *http.Request) (candidates []string) {
+	var result map[string]interface{}
+	body, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		log.Debugf("No valid POST body found, thus no candidate ids to export. Parsing error: %v", err)
+		return
+	}
+
+	if err = json.Unmarshal(body, &result); err != nil {
+		log.Debugf("No valid json body found, thus no candidate ids to export. Parsing error: %v", err)
+		return
+	}
+	log.Infof("DEBUG Parsing request body: %v", result)
+	ids, ok := result["ids"]
+	if !ok {
+		log.Debug("No ids field found in json body, thus no candidate ids to export.")
+		return
+	}
+	idsString, ok := ids.(string)
+	if ok {
+		candidates = strings.Split(idsString, " ")
+	}
+
+	return
 }
 
 func (handler *RequestHandler) GetJob(writer http.ResponseWriter, request *http.Request) {

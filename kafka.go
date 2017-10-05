@@ -24,13 +24,13 @@ type Shutdowner struct {
 	quit             chan struct{}
 	cleanup          sync.Once
 	shutDownPrepared bool
-	shutDown bool
+	shutDown         bool
 }
 
 func NewShutdowner() *Shutdowner {
 	quitCh := make(chan struct{})
 	return &Shutdowner{
-		quit:   quitCh,
+		quit: quitCh,
 	}
 }
 
@@ -41,9 +41,9 @@ type KafkaMessageHandler struct {
 	WhiteListRegex  *regexp.Regexp
 	*Locker
 	sync.RWMutex
-	paused          bool
+	paused bool
 	*Shutdowner
-	notifCh         chan Notification
+	notifCh chan Notification
 }
 
 func NewKafkaMessageHandler(exporter *ContentExporter, delayForNotification int, messageConsumer kafka.Consumer, whitelistR *regexp.Regexp, locker *Locker) *KafkaMessageHandler {
@@ -53,8 +53,8 @@ func NewKafkaMessageHandler(exporter *ContentExporter, delayForNotification int,
 		messageConsumer: messageConsumer,
 		WhiteListRegex:  whitelistR,
 		Locker:          locker,
-		notifCh: make(chan Notification, 2), //TODO when to close? is 30 as a buffer ok?
-		Shutdowner: NewShutdowner(),
+		notifCh:         make(chan Notification, 2), //TODO when to close? is 30 as a buffer ok?
+		Shutdowner:      NewShutdowner(),
 	}
 }
 
@@ -252,8 +252,8 @@ var UUIDRegexp = regexp.MustCompile("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4
 
 type Notification struct {
 	content Content
-	evType eventType
-	tid string
+	evType  eventType
+	tid     string
 }
 
 // MapNotification maps the given event to a new notification.

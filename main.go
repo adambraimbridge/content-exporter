@@ -21,12 +21,12 @@ import (
 	health "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
+	"github.com/Shopify/sarama"
 	"github.com/sethgrid/pester"
 	"net"
 	"regexp"
 	"strings"
 	"time"
-	"github.com/Shopify/sarama"
 )
 
 const appDescription = "Exports content from DB and sends to S3"
@@ -181,10 +181,10 @@ func main() {
 		}
 
 		fetcher := &content.EnrichedContentFetcher{Client: client,
-			EnrichedContentBaseURL:                        *enrichedContentBaseURL,
-			EnrichedContentHealthURL:                      *enrichedContentHealthURL,
-			XPolicyHeaderValues:                           *xPolicyHeaderValues,
-			Authorization:                                 *authorization,
+			EnrichedContentBaseURL:   *enrichedContentBaseURL,
+			EnrichedContentHealthURL: *enrichedContentHealthURL,
+			XPolicyHeaderValues:      *xPolicyHeaderValues,
+			Authorization:            *authorization,
 		}
 		uploader := &content.S3Updater{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
 
@@ -205,10 +205,10 @@ func main() {
 		go func() {
 			healthService := newHealthService(
 				&healthConfig{
-					appSystemCode:          *appSystemCode,
-					appName:                *appName,
-					port:                   *port,
-					db:                     mongo,
+					appSystemCode: *appSystemCode,
+					appName:       *appName,
+					port:          *port,
+					db:            mongo,
 					enrichedContentFetcher: fetcher,
 					s3Uploader:             uploader,
 					queueHandler:           queueHandler,
@@ -252,8 +252,8 @@ func serveEndpoints(appSystemCode string, appName string, port string, requestHa
 	serveMux.Handle("/", monitoringRouter)
 
 	server := &http.Server{
-		Addr: ":" + port,
-		Handler: serveMux,
+		Addr:         ":" + port,
+		Handler:      serveMux,
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
 		IdleTimeout:  60 * time.Second,

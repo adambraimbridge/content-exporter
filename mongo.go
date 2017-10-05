@@ -20,7 +20,7 @@ type DB interface {
 
 // TX contains database transaction functions
 type TX interface {
-	FindUUIDs(collectionId string) (Iterator, int, error)
+	FindUUIDs(collectionId string, candidates []string) (Iterator, int, error)
 	Ping(ctx context.Context) error
 	Close()
 }
@@ -72,16 +72,14 @@ func (db *MongoDB) Open() (TX, error) {
 	return &MongoTX{db.session.Copy()}, nil
 }
 
-func (tx *MongoTX) FindUUIDs(collectionID string) (Iterator, int, error) {
+func (tx *MongoTX) FindUUIDs(collectionID string, candidates []string) (Iterator, int, error) {
 	collection := tx.session.DB("upp-store").C(collectionID)
 
-	query, projection := findUUIDsQueryElements()
+	query, projection := findUUIDsQueryElements(candidates)
 	find := collection.Find(query).Select(projection).Batch(100).Limit(6000) //TODO remove limit
 
-	count, err := find.Count() //after count returns new data may be added
 	iter := find.Iter()
-	countAfter, _ := find.Count()
-	log.Printf("Nr of uuids found AFTER iter: %v", countAfter)
+	count, err := find.Count()
 	return iter, count, err
 }
 
@@ -110,13 +108,16 @@ func (db *MongoDB) Close() {
 	db.session.Close()
 }
 
-var uuidProjection = bson.M{
+var fieldsProjection = bson.M{
 	"uuid":               1,
 	"firstPublishedDate": 1,
 	"publishedDate":      1,
 }
 
-func findUUIDsQueryElements() (bson.M, bson.M) {
+func findUUIDsQueryElements(candidates []string) (bson.M, bson.M) {
+	if candidates != nil && len(candidates) != 0 {
+		return bson.M{"uuid": bson.M{"$in": candidates}}, fieldsProjection
+	}
 	return bson.M{
 		"$and": []bson.M{
 			{"$or": []bson.M{
@@ -129,5 +130,5 @@ func findUUIDsQueryElements() (bson.M, bson.M) {
 				{"realtime": true},
 			}},
 		},
-	}, uuidProjection
+	}, fieldsProjection
 }

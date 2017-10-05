@@ -5,23 +5,23 @@ import (
 	"strings"
 )
 
-const defaultDate = ""
+const defaultDate = "0000-00-00"
 
 type Inquirer interface {
-	Inquire(collection string) (chan Content, error, int)
+	Inquire(collection string, candidates []string) (chan Content, error, int)
 }
 
 type MongoInquirer struct {
 	Mongo DB
 }
 
-func (m *MongoInquirer) Inquire(collection string) (chan Content, error, int) {
+func (m *MongoInquirer) Inquire(collection string, candidates []string) (chan Content, error, int) {
 	tx, err := m.Mongo.Open()
 
 	if err != nil {
 		return nil, err, 0
 	}
-	iter, length, err := tx.FindUUIDs(collection)
+	iter, length, err := tx.FindUUIDs(collection, candidates)
 	if err != nil {
 		tx.Close()
 		return nil, err, 0
@@ -39,13 +39,13 @@ func (m *MongoInquirer) Inquire(collection string) (chan Content, error, int) {
 		counter := 0
 		for iter.Next(&result) {
 			counter++
-			var uuid string
 			docUUID, ok := result["uuid"]
-			if ok {
-				uuid = docUUID.(string)
+			if !ok {
+				log.Warnf("No uuid field found in iter result: %v. Skipping", result)
+				continue
 			}
 
-			docs <- Content{uuid, getDate(result)}
+			docs <- Content{docUUID.(string), getDate(result)}
 		}
 		log.Infof("Processed %v docs", counter)
 	}()
@@ -59,13 +59,17 @@ func getDate(result map[string]interface{}) (date string) {
 	if ok {
 		date = strings.Split(d, "T")[0]
 	}
+	if date != "" {
+		return
+	}
 	docPublishedDate, ok := result["publishedDate"]
 	d, ok = docPublishedDate.(string)
 	if ok {
 		date = strings.Split(d, "T")[0]
 	}
-	if date == "" {
-		date = defaultDate
+	if date != "" {
+		return
 	}
-	return
+
+	return defaultDate
 }
