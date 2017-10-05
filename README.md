@@ -1,17 +1,17 @@
 # content-exporter
-_Should be the same as the github repo name but it isn't always._
 
 [![Circle CI](https://circleci.com/gh/Financial-Times/content-exporter/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/content-exporter/tree/master)[![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/content-exporter)](https://goreportcard.com/report/github.com/Financial-Times/content-exporter) [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/content-exporter/badge.svg)](https://coveralls.io/github/Financial-Times/content-exporter)
 
 ## Introduction
 
-_What is this service and what is it for? What other services does it depend on_
-
-Exports content from DB and sends to S3
+The service is used for automated content exports. There are 3 types of export:
+* A *FULL export* consists in inquiring data from DB, calling /enrichedcontent endpoint for the obtained data and uploading it to S3 via the Data RW S3 service.
+* An *INCREMENTAL export* consists in listening on the notification topic and taking action for the content, according to the notification event type:
+    * if it's an UPDATE event then calling /enrichedcontent endpoint for the obtained data and uploading it to S3 via the Data RW S3 service
+    * if it's a DELETE event then deleting the content from S3 via the Data RW S3 service
+* A *TARGETED export* is similar to the FULL export but triggering only for specific data
 
 ## Installation
-      
-_How can I install it_
 
 Download the source code, dependencies and test dependencies:
 
@@ -22,7 +22,6 @@ Download the source code, dependencies and test dependencies:
         go build .
 
 ## Running locally
-_How can I run it_
 
 1. Run the tests and install the binary:
 
@@ -34,21 +33,35 @@ _How can I run it_
 
         $GOPATH/bin/content-exporter [--help]
 
-Options:
+Usage: content-exporter [OPTIONS]
 
-        --app-system-code="content-exporter"            System Code of the application ($APP_SYSTEM_CODE)
-        --app-name="content-exporter"                   Application name ($APP_NAME)
-        --port="8080"                                           Port to listen on ($APP_PORT)
-        
+        Exports content from DB and sends to S3
+
+        Options:
+          --app-system-code="content-exporter"                       System Code of the application ($APP_SYSTEM_CODE)
+          --app-name="content-exporter"                              Application name ($APP_NAME)
+          --port="8080"                                              Port to listen on ($APP_PORT)
+          --mongoConnection=""                                       Mongo addresses to connect to in format: host1[:port1][,host2[:port2],...] ($MONGO_CONNECTION)
+          --enrichedContentBaseURL="http://localhost:8080"           Base URL to enriched content endpoint ($ENRICHED_CONTENT_BASE_URL)
+          --enrichedContentHealthURL="http://localhost:8080/__gtg"   Health URL to enriched content endpoint ($ENRICHED_CONTENT_HEALTH_URL)
+          --s3WriterBaseURL="http://localhost:8080"                  Base URL to S3 writer endpoint ($S3_WRITER_BASE_URL)
+          --s3WriterHealthURL="http://localhost:8080/__gtg"          Base URL to S3 writer endpoint ($S3_WRITER_HEALTH_URL)
+          --xPolicyHeaderValues=""                                   Values for X-Policy header separated by comma, e.g. INCLUDE_RICH_CONTENT,EXPAND_IMAGES ($X_POLICY_HEADER_VALUES)
+          --authorization=""                                         Authorization for enrichedcontent endpoint ($AUTHORIZATION)
+
+          --kafka_addr=""                                            Comma separated kafka hosts for message consuming. ($KAFKA_ADDRS)
+          --group_id=""                                              Kafka qroup id used for message consuming. ($GROUP_ID)
+          --topic=""                                                 Kafka topic to read from. ($TOPIC)
+          --delayForNotification=30                                  Delay in seconds for notifications to being handled ($DELAY_FOR_NOTIFICATION)
+          --whitelist=""                                             The whitelist for incoming notifications - i.e. ^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/content/[\w-]+.*$ ($WHITELIST)
+          --logDebug=false                                           The whitelist for incoming notifications - i.e. ^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/content/[\w-]+.*$ ($LOG_DEBUG)
+
 3. Test:
 
     1. Either using curl:
 
-            curl http://localhost:8080/people/143ba45c-2fb3-35bc-b227-a6ed80b5c517 | json_pp
+            curl http://localhost:8080/content/jobs/<uuid> | json_pp
 
-    1. Or using [httpie](https://github.com/jkbrzt/httpie):
-
-            http GET http://localhost:8080/people/143ba45c-2fb3-35bc-b227-a6ed80b5c517
 
 ## Build and deployment
 _How can I build and deploy it (lots of this will be links out as the steps will be common)_
