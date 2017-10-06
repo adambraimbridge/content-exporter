@@ -1,4 +1,4 @@
-package main
+package db
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 var expectedConnections = 1
 var connections = 0
 
-// DB contains database functions
-type DB interface {
+// Service contains database functions
+type Service interface {
 	Open() (TX, error)
 	Close()
 }
@@ -46,7 +46,7 @@ type MongoDB struct {
 	session *mgo.Session
 }
 
-func NewMongoDatabase(connection string, timeout int) DB {
+func NewMongoDatabase(connection string, timeout int) *MongoDB {
 	return &MongoDB{Urls: connection, Timeout: timeout, lock: &sync.Mutex{}}
 }
 

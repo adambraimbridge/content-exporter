@@ -1,11 +1,11 @@
 package main
 
 import (
-	"context"
 	"github.com/Financial-Times/content-exporter/content"
 	health "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
-	"time"
+	"github.com/Financial-Times/content-exporter/db"
+	"github.com/Financial-Times/content-exporter/queue"
 )
 
 const healthPath = "/__health"
@@ -19,10 +19,10 @@ type healthConfig struct {
 	appSystemCode          string
 	appName                string
 	port                   string
-	db                     *MongoDB
+	db                     *db.MongoDB
 	enrichedContentFetcher *content.EnrichedContentFetcher
 	s3Uploader             *content.S3Updater
-	queueHandler           *KafkaMessageHandler
+	queueHandler           *queue.KafkaListener
 }
 
 func newHealthService(config *healthConfig) *healthService {

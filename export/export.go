@@ -1,41 +1,18 @@
-package main
+package export
 
 import (
 	"fmt"
-	"github.com/Financial-Times/content-exporter/content"
 	log "github.com/sirupsen/logrus"
 	"sync"
+	"github.com/Financial-Times/content-exporter/content"
 )
 
-type Content struct {
-	Uuid, Date string
-}
 
-type ContentExporter struct {
-	Fetcher  content.Fetcher
-	Uploader content.Updater
-}
-
-func (e *ContentExporter) HandleContent(tid string, doc Content) error {
-	payload, err := e.Fetcher.GetContent(doc.Uuid, tid)
-	if err != nil {
-		log.Errorf("Error by getting content for %v: %v\n", doc.Uuid, err)
-		return err
-	}
-
-	err = e.Uploader.Upload(payload, tid, doc.Uuid, doc.Date)
-	if err != nil {
-		log.Errorf("Error by uploading content for %v: %v\n", doc.Uuid, err)
-		return err
-	}
-	return nil
-}
-
-type FullExporter struct {
+type Service struct {
 	sync.RWMutex
 	jobs                  map[string]*Job
-	nrOfConcurrentWorkers int
-	*ContentExporter
+	NrOfConcurrentWorkers int
+	*content.Exporter
 }
 
 type State string
@@ -50,7 +27,7 @@ type Job struct {
 	sync.RWMutex
 	wg           sync.WaitGroup
 	NrWorker     int          `json:"-"`
-	DocIds       chan Content `json:"-"`
+	DocIds       chan content.Stub `json:"-"`
 	ID           string       `json:"ID"`
 	Count        int          `json:"ApproximateCount,omitempty"`
 	Progress     int          `json:"Progress,omitempty"`
@@ -59,15 +36,15 @@ type Job struct {
 	ErrorMessage string       `json:"ErrorMessage,omitempty"`
 }
 
-func NewFullExporter(nrOfWorkers int, exporter *ContentExporter) *FullExporter {
-	return &FullExporter{
-		jobs: make(map[string]*Job),
-		nrOfConcurrentWorkers: nrOfWorkers,
-		ContentExporter:       exporter,
+func NewFullExporter(nrOfWorkers int, exporter *content.Exporter) *Service {
+	return &Service{
+		jobs:                  make(map[string]*Job),
+		NrOfConcurrentWorkers: nrOfWorkers,
+		Exporter:              exporter,
 	}
 }
 
-func (fe *FullExporter) GetRunningJobs() []Job {
+func (fe *Service) GetRunningJobs() []Job {
 	fe.RLock()
 	defer fe.RUnlock()
 	var jobs []Job
@@ -79,7 +56,7 @@ func (fe *FullExporter) GetRunningJobs() []Job {
 	return jobs
 }
 
-func (fe *FullExporter) GetJob(jobID string) (Job, error) {
+func (fe *Service) GetJob(jobID string) (Job, error) {
 	fe.RLock()
 	defer fe.RUnlock()
 	job, ok := fe.jobs[jobID]
@@ -89,7 +66,7 @@ func (fe *FullExporter) GetJob(jobID string) (Job, error) {
 	return job.Copy(), nil
 }
 
-func (fe *FullExporter) AddJob(job *Job) {
+func (fe *Service) AddJob(job *Job) {
 	if job != nil {
 		fe.Lock()
 		fe.jobs[job.ID] = job
@@ -109,7 +86,7 @@ func (job *Job) Copy() Job {
 	}
 }
 
-func (job *Job) RunFullExport(tid string, export func(string, Content) error) {
+func (job *Job) RunFullExport(tid string, export func(string, content.Stub) error) {
 	log.Infof("Job started: %v", job.ID)
 	job.Status = RUNNING
 	worker := make(chan struct{}, job.NrWorker)

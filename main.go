@@ -27,6 +27,10 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"github.com/Financial-Times/content-exporter/export"
+	"github.com/Financial-Times/content-exporter/db"
+	"github.com/Financial-Times/content-exporter/queue"
+	"github.com/Financial-Times/content-exporter/web"
 )
 
 const appDescription = "Exports content from DB and sends to S3"
@@ -149,7 +153,7 @@ func main() {
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s, Mongo connection: %s", *appSystemCode, *appName, *port, *mongos)
-		mongo := NewMongoDatabase(*mongos, 100)
+		mongo := db.NewMongoDatabase(*mongos, 100)
 
 		tr := &http.Transport{
 			MaxIdleConnsPerHost: 128,
@@ -181,44 +185,45 @@ func main() {
 		}
 
 		fetcher := &content.EnrichedContentFetcher{Client: client,
-			EnrichedContentBaseURL:   *enrichedContentBaseURL,
-			EnrichedContentHealthURL: *enrichedContentHealthURL,
-			XPolicyHeaderValues:      *xPolicyHeaderValues,
-			Authorization:            *authorization,
+			EnrichedContentBaseURL:                       *enrichedContentBaseURL,
+			EnrichedContentHealthURL:                     *enrichedContentHealthURL,
+			XPolicyHeaderValues:                          *xPolicyHeaderValues,
+			Authorization:                                *authorization,
 		}
 		uploader := &content.S3Updater{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
 
-		exporter := &ContentExporter{
+		exporter := &content.Exporter{
 			Fetcher:  fetcher,
 			Uploader: uploader,
 		}
-		fullExporter := NewFullExporter(30, exporter)
+		fullExporter := export.NewFullExporter(30, exporter)
 
 		whitelistR, err := regexp.Compile(*whitelist)
 		if err != nil {
 			log.WithError(err).Fatal("Whitelist regex MUST compile!")
 		}
-		locker := NewLocker()
-		queueHandler := NewKafkaMessageHandler(exporter, *delayForNotification, messageConsumer, whitelistR, locker)
-		go queueHandler.ConsumeMessages()
+		locker := export.NewLocker()
+		kafkaMessageHandler := queue.NewKafkaMessageHandler(exporter, *delayForNotification,whitelistR)
+		kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, locker)
+		go kafkaListener.ConsumeMessages()
 
 		go func() {
 			healthService := newHealthService(
 				&healthConfig{
-					appSystemCode: *appSystemCode,
-					appName:       *appName,
-					port:          *port,
-					db:            mongo,
+					appSystemCode:          *appSystemCode,
+					appName:                *appName,
+					port:                   *port,
+					db:                     mongo,
 					enrichedContentFetcher: fetcher,
 					s3Uploader:             uploader,
-					queueHandler:           queueHandler,
+					queueHandler:           kafkaListener,
 				})
 
-			serveEndpoints(*appSystemCode, *appName, *port, NewRequestHandler(fullExporter, mongo, locker), healthService)
+			serveEndpoints(*appSystemCode, *appName, *port, web.NewRequestHandler(fullExporter, mongo, locker), healthService)
 		}()
 
 		waitForSignal()
-		queueHandler.StopConsumingMessages()
+		kafkaListener.StopConsumingMessages()
 		log.Infoln("Gracefully shut down")
 
 	}
@@ -230,7 +235,7 @@ func main() {
 	}
 }
 
-func serveEndpoints(appSystemCode string, appName string, port string, requestHandler *RequestHandler,
+func serveEndpoints(appSystemCode string, appName string, port string, requestHandler *web.RequestHandler,
 	healthService *healthService) {
 
 	serveMux := http.NewServeMux()

@@ -1,4 +1,4 @@
-package main
+package web
 
 import (
 	"encoding/json"
@@ -11,19 +11,21 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"github.com/Financial-Times/content-exporter/export"
+	"github.com/Financial-Times/content-exporter/content"
+	"github.com/Financial-Times/content-exporter/db"
 )
 
-
 type RequestHandler struct {
-	FullExporter *FullExporter
-	Inquirer     Inquirer
-	*Locker
+	FullExporter *export.Service
+	Inquirer     content.Inquirer
+	*export.Locker
 }
 
-func NewRequestHandler(fullExporter *FullExporter, mongo DB, locker *Locker) *RequestHandler {
+func NewRequestHandler(fullExporter *export.Service, mongo db.Service, locker *export.Locker) *RequestHandler {
 	return &RequestHandler{
 		FullExporter: fullExporter,
-		Inquirer:     &MongoInquirer{Mongo: mongo},
+		Inquirer:     &content.MongoInquirer{Mongo: mongo},
 		Locker:       locker,
 	}
 }
@@ -34,7 +36,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	tid := transactionidutils.GetTransactionIDFromRequest(request)
 
 	select {
-	case handler.Locker.locked <- true:
+	case handler.Locker.Locked <- true:
 		log.Info("Lock initiated")
 	case <-time.After(time.Second * 3):
 		msg := "Lock initiation timed out"
@@ -44,7 +46,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	}
 
 	select {
-	case <-handler.Locker.acked:
+	case <-handler.Locker.Acked:
 		log.Info("Locker acquired")
 	case <-time.After(time.Second * 20):
 		msg := "Stopping kafka consumption timed out"
@@ -56,13 +58,13 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	candidates := getCandidateUuids(request)
 
 	jobID := uuid.New()
-	job := &Job{ID: jobID, NrWorker: handler.FullExporter.nrOfConcurrentWorkers, Status: STARTING}
+	job := &export.Job{ID: jobID, NrWorker: handler.FullExporter.NrOfConcurrentWorkers, Status: export.STARTING}
 	handler.FullExporter.AddJob(job)
 
 	go func() {
 		defer func() {
 			log.Info("Locker released")
-			handler.Locker.locked <- false
+			handler.Locker.Locked <- false
 		}()
 		log.Infoln("Calling mongo")
 		docs, err, count := handler.Inquirer.Inquire("content", candidates)
@@ -70,7 +72,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 			msg := fmt.Sprintf(`Failed to read IDs from mongo for %v! "%v"`, "content", err.Error())
 			log.Info(msg)
 			job.ErrorMessage = msg
-			job.Status = FINISHED
+			job.Status = export.FINISHED
 			return
 		}
 		log.Infof("Nr of UUIDs found: %v", count)
