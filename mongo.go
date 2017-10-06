@@ -108,6 +108,25 @@ func (db *MongoDB) Close() {
 	db.session.Close()
 }
 
+func (db *MongoDB) CheckHealth() (string, error) {
+	tx, err := db.Open()
+	if err != nil {
+		return "", err
+	}
+
+	defer func() { go tx.Close() }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	err = tx.Ping(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return "OK", nil
+}
+
 var fieldsProjection = bson.M{
 	"uuid":               1,
 	"firstPublishedDate": 1,

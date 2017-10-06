@@ -224,6 +224,7 @@ func (h *KafkaMessageHandler) handleNotification() {
 		logEntry := log.WithField("transaction_id", n.tid).WithField("uuid", n.content.Uuid)
 		if n.evType == UPDATE {
 			logEntry.Infof("UPDATE event received. Waiting configured delay - %v second(s)", h.Delay)
+			//TODO handle shutdowns correctly, as this will be not gracefully shutdown
 			time.Sleep(time.Duration(h.Delay) * time.Second)
 			if err := h.ContentExporter.HandleContent(n.tid, n.content); err != nil {
 				log.WithField("transaction_id", n.tid).WithField("uuid", n.content.Uuid).WithError(err).Error("FAILED UPDATE event")

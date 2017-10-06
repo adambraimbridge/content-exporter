@@ -19,7 +19,7 @@ type healthConfig struct {
 	appSystemCode          string
 	appName                string
 	port                   string
-	db                     DB
+	db                     *MongoDB
 	enrichedContentFetcher *content.EnrichedContentFetcher
 	s3Uploader             *content.S3Updater
 	queueHandler           *KafkaMessageHandler
@@ -28,22 +28,22 @@ type healthConfig struct {
 func newHealthService(config *healthConfig) *healthService {
 	svc := &healthService{config: config}
 	svc.checks = []health.Check{
-		svc.MongoCheck(config.db),
+		svc.MongoCheck(),
 		svc.ReadEndpointCheck(),
 		svc.S3WriterCheck(),
-		//svc.KafkaCheck(),
+		svc.KafkaCheck(),
 	}
 	return svc
 }
 
-func (service *healthService) MongoCheck(db DB) health.Check {
+func (service *healthService) MongoCheck() health.Check {
 	return health.Check{
 		Name:             "CheckConnectivityToMongoDatabase",
 		BusinessImpact:   "No Business Impact.",
 		PanicGuide:       "https://dewey.ft.com/content-exporter.html",
 		Severity:         2,
-		TechnicalSummary: "The service is unable to connect to MongoDB. Full export won't work because of this",
-		Checker:          service.pingMongo(db),
+		TechnicalSummary: "The service is unable to connect to MongoDB. FULL or TARGETED export won't work because of this",
+		Checker:          service.config.db.CheckHealth,
 	}
 }
 
@@ -53,7 +53,7 @@ func (service *healthService) ReadEndpointCheck() health.Check {
 		BusinessImpact:   "No Business Impact.",
 		PanicGuide:       "https://dewey.ft.com/content-exporter.html",
 		Severity:         2,
-		TechnicalSummary: "The service is unable to connect to Api Policy Component. Neither Full nor Incremental Export won't work because of this",
+		TechnicalSummary: "The service is unable to connect to Api Policy Component. Neither FULL nor INCREMENTAL or TARGETED export won't work because of this",
 		Checker:          service.config.enrichedContentFetcher.CheckHealth,
 	}
 }
@@ -64,7 +64,7 @@ func (service *healthService) S3WriterCheck() health.Check {
 		BusinessImpact:   "No Business Impact.",
 		PanicGuide:       "https://dewey.ft.com/content-exporter.html",
 		Severity:         2,
-		TechnicalSummary: "The service is unable to connect to Content-RW-S3. Neither Full nor Incremental Export won't work because of this",
+		TechnicalSummary: "The service is unable to connect to Content-RW-S3. Neither FULL nor INCREMENTAL or TARGETED export won't work because of this",
 		Checker:          service.config.s3Uploader.CheckHealth,
 	}
 }
@@ -75,31 +75,11 @@ func (service *healthService) KafkaCheck() health.Check {
 		BusinessImpact:   "No Business Impact.",
 		PanicGuide:       "https://dewey.ft.com/content-exporter.html",
 		Severity:         2,
-		TechnicalSummary: "The service is unable to connect to Kafka. Incremental Export won't work because of this",
+		TechnicalSummary: "The service is unable to connect to Kafka. INCREMENTAL export won't work because of this",
 		Checker:          service.config.queueHandler.CheckHealth,
 	}
 }
 
-func (service *healthService) pingMongo(db DB) func() (string, error) {
-	return func() (string, error) {
-		tx, err := db.Open()
-		if err != nil {
-			return "", err
-		}
-
-		defer func() { go tx.Close() }()
-
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		err = tx.Ping(ctx)
-		if err != nil {
-			return "", err
-		}
-
-		return "OK", nil
-	}
-}
 
 func (service *healthService) gtgCheck() gtg.Status {
 	for _, check := range service.checks {
