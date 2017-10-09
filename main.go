@@ -184,7 +184,8 @@ func main() {
 			log.WithError(err).Fatal("Cannot create Kafka client")
 		}
 
-		fetcher := &content.EnrichedContentFetcher{Client: client,
+		fetcher := &content.EnrichedContentFetcher{
+			Client:                   client,
 			EnrichedContentBaseURL:   *enrichedContentBaseURL,
 			EnrichedContentHealthURL: *enrichedContentHealthURL,
 			XPolicyHeaderValues:      *xPolicyHeaderValues,
@@ -192,10 +193,7 @@ func main() {
 		}
 		uploader := &content.S3Updater{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
 
-		exporter := &content.Exporter{
-			Fetcher:  fetcher,
-			Uploader: uploader,
-		}
+		exporter := content.NewExporter(fetcher, uploader)
 		fullExporter := export.NewFullExporter(30, exporter)
 
 		whitelistR, err := regexp.Compile(*whitelist)
@@ -210,10 +208,10 @@ func main() {
 		go func() {
 			healthService := newHealthService(
 				&healthConfig{
-					appSystemCode: *appSystemCode,
-					appName:       *appName,
-					port:          *port,
-					db:            mongo,
+					appSystemCode:          *appSystemCode,
+					appName:                *appName,
+					port:                   *port,
+					db:                     mongo,
 					enrichedContentFetcher: fetcher,
 					s3Uploader:             uploader,
 					queueHandler:           kafkaListener,

@@ -106,6 +106,7 @@ func (job *Job) RunFullExport(tid string, export func(string, content.Stub) erro
 		go func() {
 			defer job.wg.Done()
 			if err := export(tid, doc); err != nil {
+				log.WithField("transaction_id", tid).WithField("uuid", doc.Uuid).Error(err)
 				job.Lock()
 				job.Failed = append(job.Failed, doc.Uuid)
 				job.Unlock()

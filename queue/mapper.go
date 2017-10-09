@@ -99,7 +99,7 @@ func (h *KafkaMessageHandler) HandleNotificationEvent(n Notification) {
 		}
 	} else if n.EvType == DELETE {
 		logEntry.Info("DELETE event received")
-		if err := h.ContentExporter.Uploader.Delete(n.Stub.Uuid, n.Tid); err != nil {
+		if err := h.ContentExporter.Updater.Delete(n.Stub.Uuid, n.Tid); err != nil {
 			logEntry.WithError(err).Error("FAILED DELETE event")
 		}
 	}
