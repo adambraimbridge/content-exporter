@@ -39,12 +39,12 @@ func (m *MongoInquirer) Inquire(collection string, candidates []string) (chan St
 		counter := 0
 		for iter.Next(&result) {
 			counter++
-            content, err := MapDBContent(result)
+            stub, err := mapStub(result)
 			if err != nil {
 				log.Warn(err)
 				continue
 			}
-			docs <- content
+			docs <- stub
 		}
 		log.Infof("Processed %v docs", counter)
 	}()
@@ -52,7 +52,7 @@ func (m *MongoInquirer) Inquire(collection string, candidates []string) (chan St
 	return docs, nil, length
 }
 
-func MapDBContent(result map[string]interface{}) (Stub, error) {
+func mapStub(result map[string]interface{}) (Stub, error) {
 	docUUID, ok := result["uuid"]
 	if !ok {
 		return Stub{}, fmt.Errorf("No uuid field found in iter result: %v", result)

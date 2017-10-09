@@ -41,5 +41,5 @@ else
   echo ${job}
   sleep 3
   done
-  echo "FULL export finished. Check logs if there are failures"
+  echo "Export finished. Check logs if there are failures"
 fi

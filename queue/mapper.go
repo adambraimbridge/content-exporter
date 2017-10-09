@@ -53,18 +53,18 @@ func (h *KafkaMessageHandler) handleMessage(msg Message, tid string) (Notificati
 		return Notification{}, nil
 	}
 
-	notif, err := h.MapNotification(pubEvent)
+	n, err := pubEvent.MapNotification()
 	if err != nil {
 		log.WithField("transaction_id", tid).WithField("msg", msg.Body).WithError(err).Warn("Skipping event: Cannot build notification for message.")
 		return Notification{}, err
 	}
-	notif.Tid = tid
+	n.Tid = tid
 
-	return notif, nil
+	return n, nil
 }
 
-func (h *KafkaMessageHandler) MapNotification(event PublicationEvent) (Notification, error) {
-	UUID := UUIDRegexp.FindString(event.ContentURI)
+func (e PublicationEvent) MapNotification() (Notification, error) {
+	UUID := UUIDRegexp.FindString(e.ContentURI)
 	if UUID == "" {
 		return Notification{Stub: content.Stub{}, EvType: EventType("")}, fmt.Errorf("ContentURI does not contain a UUID")
 	}
@@ -72,11 +72,11 @@ func (h *KafkaMessageHandler) MapNotification(event PublicationEvent) (Notificat
 	var evType EventType
 	var date = content.DefaultDate
 
-	if event.HasEmptyPayload() {
+	if e.HasEmptyPayload() {
 		evType = DELETE
 	} else {
 		evType = UPDATE
-		notificationPayloadMap, ok := event.Payload.(map[string]interface{})
+		notificationPayloadMap, ok := e.Payload.(map[string]interface{})
 		if ok {
 			date = content.GetDate(notificationPayloadMap)
 		}
