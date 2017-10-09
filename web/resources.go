@@ -35,6 +35,12 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 
 	tid := transactionidutils.GetTransactionIDFromRequest(request)
 
+	jobs := handler.FullExporter.GetRunningJobs()
+	if len(jobs) > 0 {
+		http.Error(writer, "There are already running export jobs. Please wait them to finish", http.StatusBadRequest)
+		return
+	}
+
 	select {
 	case handler.Locker.Locked <- true:
 		log.Info("Lock initiated")
@@ -55,7 +61,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	candidates := getCandidateUuids(request)
+	candidates := getCandidateUUIDs(request)
 
 	jobID := uuid.New()
 	job := &export.Job{ID: jobID, NrWorker: handler.FullExporter.NrOfConcurrentWorkers, Status: export.STARTING}
@@ -94,7 +100,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	}
 }
 
-func getCandidateUuids(request *http.Request) (candidates []string) {
+func getCandidateUUIDs(request *http.Request) (candidates []string) {
 	var result map[string]interface{}
 	body, err := ioutil.ReadAll(request.Body)
 	if err != nil {
@@ -109,12 +115,14 @@ func getCandidateUuids(request *http.Request) (candidates []string) {
 	log.Infof("DEBUG Parsing request body: %v", result)
 	ids, ok := result["ids"]
 	if !ok {
-		log.Debug("No ids field found in json body, thus no candidate ids to export.")
+		log.Infof("No ids field found in json body, thus no candidate ids to export.")
 		return
 	}
 	idsString, ok := ids.(string)
 	if ok {
 		candidates = strings.Split(idsString, " ")
+	} else {
+		log.Infof("The ids field found in json body is not a string as expected.")
 	}
 
 	return
