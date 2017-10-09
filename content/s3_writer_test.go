@@ -41,6 +41,20 @@ func (m *mockS3WriterServer) startMockS3WriterServer(t *testing.T) *httptest.Ser
 
 	}).Methods(http.MethodPut)
 
+	router.HandleFunc("/content/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+		ua := r.Header.Get("User-Agent")
+		assert.Equal(t, "UPP Content Exporter", ua, "user-agent header")
+
+		tid := r.Header.Get("X-Request-Id")
+
+		pathUuid, ok := mux.Vars(r)["uuid"]
+		assert.NotNil(t, pathUuid)
+		assert.True(t, ok)
+
+		w.WriteHeader(m.DeleteRequest(pathUuid, tid))
+
+	}).Methods(http.MethodDelete)
+
 	router.HandleFunc("/__gtg", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(m.GTG())
 	}).Methods(http.MethodGet)
@@ -55,6 +69,11 @@ func (m *mockS3WriterServer) GTG() int {
 
 func (m *mockS3WriterServer) UploadRequest(bodyUuid, tid, contentTypeHeader, date string) int {
 	args := m.Called(bodyUuid, tid, contentTypeHeader, date)
+	return args.Int(0)
+}
+
+func (m *mockS3WriterServer) DeleteRequest(bodyUuid, tid string) int {
+	args := m.Called(bodyUuid, tid)
 	return args.Int(0)
 }
 
@@ -79,7 +98,7 @@ func TestS3UpdaterUploadContent(t *testing.T) {
 	mockServer.AssertExpectations(t)
 }
 
-func TestS3UpdaterUploadContentWithError(t *testing.T) {
+func TestS3UpdaterUploadContentErrorResponse(t *testing.T) {
 	testUUID := uuid.NewUUID().String()
 	testData := make(map[string]interface{})
 	testData["uuid"] = testUUID
@@ -92,6 +111,51 @@ func TestS3UpdaterUploadContentWithError(t *testing.T) {
 	updater := NewS3Updater(server.URL)
 
 	err := updater.Upload(testData, "tid_1234", testUUID, date)
+	assert.Error(t, err)
+	assert.Equal(t, "Content RW S3 returned HTTP 503", err.Error())
+	mockServer.AssertExpectations(t)
+}
+
+func TestS3UpdaterUploadContentErrorParsing(t *testing.T) {
+	testUUID := uuid.NewUUID().String()
+	date := time.Now().UTC().Format("2006-01-02")
+
+	mockServer := new(mockS3WriterServer)
+	
+	server := mockServer.startMockS3WriterServer(t)
+
+	updater := NewS3Updater(server.URL)
+
+	err := updater.Upload(map[string]interface{}{"":make(chan int)}, "tid_1234", testUUID, date)
+	assert.Error(t, err)
+	assert.Equal(t, "json: unsupported type: chan int", err.Error())
+	mockServer.AssertExpectations(t)
+}
+
+func TestS3UpdaterDeleteContent(t *testing.T) {
+	testUUID := uuid.NewUUID().String()
+
+	mockServer := new(mockS3WriterServer)
+	mockServer.On("DeleteRequest", testUUID, "tid_1234").Return(200)
+	server := mockServer.startMockS3WriterServer(t)
+
+	updater := NewS3Updater(server.URL)
+
+	err := updater.Delete(testUUID, "tid_1234")
+	assert.NoError(t, err)
+	mockServer.AssertExpectations(t)
+}
+
+func TestS3UpdaterDeleteContentErrorResponse(t *testing.T) {
+	testUUID := uuid.NewUUID().String()
+
+	mockServer := new(mockS3WriterServer)
+	mockServer.On("DeleteRequest", testUUID, "tid_1234").Return(503)
+	server := mockServer.startMockS3WriterServer(t)
+
+	updater := NewS3Updater(server.URL)
+
+	err := updater.Delete(testUUID, "tid_1234")
 	assert.Error(t, err)
 	assert.Equal(t, "Content RW S3 returned HTTP 503", err.Error())
 	mockServer.AssertExpectations(t)
