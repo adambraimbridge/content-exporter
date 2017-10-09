@@ -16,14 +16,16 @@ postBody=""
 if [ -n "${UUID_LIST}" ]; then
   echo "Export will be made for the following uuids: ${UUID_LIST}"
   postBody="{\"ids\":\"${UUID_LIST}\"}"
+else
+  echo "FULL export initiated."
 fi
 jobResult=`curl -qSfs "${EXPORTER_URL}/export" -H "Authorization: ${AUTH}" -XPOST -d "${postBody}" 2>/dev/null`
 if [ "$?" -ne 0 ]; then
-  echo ">>Exporter service cannot be called successfully. Maybe service is down or the authentication is incorrect?"
+  echo ">>Exporter service cannot be called successfully. Maybe service is down or the authentication is incorrect or there is already a running export job?"
   exit 1
 else
   jobID=`echo "${jobResult}" | jq '.ID' | cut -d'"' -f2 2>/dev/null`
-  echo "FULL export initiated. Job id: ${jobID}"
+  echo "Export triggered. Job id: ${jobID}. Checking continuously the status to be in 'Finished'..."
   sleep 3
   status="Running"
   while [ ${status} != "Finished" ]; do
