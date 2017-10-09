@@ -28,4 +28,3 @@ func GetDate(result map[string]interface{}) (date string) {
 
 	return DefaultDate
 }
-

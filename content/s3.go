@@ -15,8 +15,8 @@ type Updater interface {
 }
 
 type S3Updater struct {
-	Client          Client
-	S3WriterBaseURL string
+	Client            Client
+	S3WriterBaseURL   string
 	S3WriterHealthURL string
 }
 

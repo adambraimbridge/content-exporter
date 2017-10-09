@@ -3,13 +3,13 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Financial-Times/content-exporter/export"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	log "github.com/sirupsen/logrus"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
-	"github.com/Financial-Times/content-exporter/export"
 )
 
 type MessageHandler interface {
@@ -17,10 +17,10 @@ type MessageHandler interface {
 }
 
 type KafkaListener struct {
-	messageConsumer     kafka.Consumer
+	messageConsumer kafka.Consumer
 	*export.Locker
 	sync.RWMutex
-	paused              bool
+	paused bool
 	*export.Terminator
 	notifCh             chan Notification
 	KafkaMessageHandler *KafkaMessageHandler

@@ -2,10 +2,10 @@ package main
 
 import (
 	"github.com/Financial-Times/content-exporter/content"
-	health "github.com/Financial-Times/go-fthealth/v1_1"
-	"github.com/Financial-Times/service-status-go/gtg"
 	"github.com/Financial-Times/content-exporter/db"
 	"github.com/Financial-Times/content-exporter/queue"
+	health "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/Financial-Times/service-status-go/gtg"
 )
 
 const healthPath = "/__health"
@@ -79,7 +79,6 @@ func (service *healthService) KafkaCheck() health.Check {
 		Checker:          service.config.queueHandler.CheckHealth,
 	}
 }
-
 
 func (service *healthService) gtgCheck() gtg.Status {
 	for _, check := range service.checks {

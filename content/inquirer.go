@@ -1,11 +1,10 @@
 package content
 
 import (
-	log "github.com/sirupsen/logrus"
 	"fmt"
 	"github.com/Financial-Times/content-exporter/db"
+	log "github.com/sirupsen/logrus"
 )
-
 
 type Inquirer interface {
 	Inquire(collection string, candidates []string) (chan Stub, error, int)
@@ -39,7 +38,7 @@ func (m *MongoInquirer) Inquire(collection string, candidates []string) (chan St
 		counter := 0
 		for iter.Next(&result) {
 			counter++
-            stub, err := mapStub(result)
+			stub, err := mapStub(result)
 			if err != nil {
 				log.Warn(err)
 				continue

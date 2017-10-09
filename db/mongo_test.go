@@ -1,14 +1,14 @@
 package db
 
 import (
-	"os"
-	"testing"
-	"strings"
-	"github.com/stretchr/testify/assert"
 	"context"
-	"github.com/stretchr/testify/require"
 	"github.com/pborman/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/mgo.v2/bson"
+	"os"
+	"strings"
+	"testing"
 )
 
 func startMongo(t *testing.T) Service {
@@ -200,6 +200,36 @@ func TestFindUUIDsWithoutValidData(t *testing.T) {
 
 	var result map[string]interface{}
 	assert.False(t, iter.Next(&result))
+}
+
+func TestFindUUIDsWithCandidate(t *testing.T) {
+	mongo := startMongo(t)
+	defer mongo.Close()
+	tx, err := mongo.Open()
+	defer tx.Close()
+	assert.NoError(t, err)
+
+	testUUID1 := uuid.NewUUID().String()
+	testUUID2 := uuid.NewUUID().String()
+	t.Log("Test uuids to use: ", testUUID1, testUUID2)
+	testContent := make(map[string]interface{})
+
+	testContent["uuid"] = testUUID1
+	testContent["type"] = "Article"
+	insertTestContent(t, mongo.(*MongoDB), testContent)
+	testContent["uuid"] = testUUID2
+	insertTestContent(t, mongo.(*MongoDB), testContent)
+	defer cleanupTestContent(t, mongo.(*MongoDB), testUUID1, testUUID2)
+
+	iter, count, err := tx.FindUUIDs("testing", []string{testUUID1})
+	require.NoError(t, err)
+	defer iter.Close()
+	require.NoError(t, iter.Err())
+	require.Equal(t, 1, count)
+
+	var result map[string]interface{}
+	assert.True(t, iter.Next(&result))
+	assert.Equal(t, testUUID1, result["uuid"].(string))
 }
 
 func insertTestContent(t *testing.T, mongo *MongoDB, testContent map[string]interface{}) {

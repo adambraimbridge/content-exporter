@@ -18,6 +18,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Financial-Times/content-exporter/content"
+	"github.com/Financial-Times/content-exporter/db"
+	"github.com/Financial-Times/content-exporter/export"
+	"github.com/Financial-Times/content-exporter/queue"
+	"github.com/Financial-Times/content-exporter/web"
 	health "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
@@ -27,10 +31,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"github.com/Financial-Times/content-exporter/export"
-	"github.com/Financial-Times/content-exporter/db"
-	"github.com/Financial-Times/content-exporter/queue"
-	"github.com/Financial-Times/content-exporter/web"
 )
 
 const appDescription = "Exports content from DB and sends to S3"
@@ -185,10 +185,10 @@ func main() {
 		}
 
 		fetcher := &content.EnrichedContentFetcher{Client: client,
-			EnrichedContentBaseURL:                       *enrichedContentBaseURL,
-			EnrichedContentHealthURL:                     *enrichedContentHealthURL,
-			XPolicyHeaderValues:                          *xPolicyHeaderValues,
-			Authorization:                                *authorization,
+			EnrichedContentBaseURL:   *enrichedContentBaseURL,
+			EnrichedContentHealthURL: *enrichedContentHealthURL,
+			XPolicyHeaderValues:      *xPolicyHeaderValues,
+			Authorization:            *authorization,
 		}
 		uploader := &content.S3Updater{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
 
@@ -203,17 +203,17 @@ func main() {
 			log.WithError(err).Fatal("Whitelist regex MUST compile!")
 		}
 		locker := export.NewLocker()
-		kafkaMessageHandler := queue.NewKafkaMessageHandler(exporter, *delayForNotification,whitelistR)
+		kafkaMessageHandler := queue.NewKafkaMessageHandler(exporter, *delayForNotification, whitelistR)
 		kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, locker)
 		go kafkaListener.ConsumeMessages()
 
 		go func() {
 			healthService := newHealthService(
 				&healthConfig{
-					appSystemCode:          *appSystemCode,
-					appName:                *appName,
-					port:                   *port,
-					db:                     mongo,
+					appSystemCode: *appSystemCode,
+					appName:       *appName,
+					port:          *port,
+					db:            mongo,
 					enrichedContentFetcher: fetcher,
 					s3Uploader:             uploader,
 					queueHandler:           kafkaListener,

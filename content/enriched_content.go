@@ -17,11 +17,11 @@ type Fetcher interface {
 }
 
 type EnrichedContentFetcher struct {
-	Client                 Client
-	EnrichedContentBaseURL string
+	Client                   Client
+	EnrichedContentBaseURL   string
 	EnrichedContentHealthURL string
-	XPolicyHeaderValues    string
-	Authorization          string
+	XPolicyHeaderValues      string
+	Authorization            string
 }
 
 func (e *EnrichedContentFetcher) GetContent(uuid, tid string) (map[string]interface{}, error) {
@@ -65,7 +65,7 @@ func (e *EnrichedContentFetcher) CheckHealth() (string, error) {
 	if err != nil {
 		return "Error in building request to check if the enrichedContent fetcher is good to go", err
 	}
-	
+
 	if e.Authorization != "" {
 		req.Header.Add("Authorization", e.Authorization)
 	}

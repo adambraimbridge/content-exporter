@@ -1,10 +1,10 @@
 package queue
 
 import (
-	"regexp"
 	"fmt"
 	"github.com/Financial-Times/content-exporter/content"
 	log "github.com/sirupsen/logrus"
+	"regexp"
 	"time"
 )
 

@@ -12,6 +12,8 @@ checkout:
 
 dependencies:
   pre:
+    - docker pull mongo:3.0.2
+    - docker run -d -P mongo:3.0.2
     - go get -u github.com/kardianos/govendor
   override:
     - cd $PROJECT_PATH && govendor sync
@@ -24,7 +26,11 @@ test:
     - cd $PROJECT_PATH && wget https://raw.githubusercontent.com/Financial-Times/cookiecutter-upp-golang/master/coverage.sh && chmod +x coverage.sh
   override:
     - mkdir -p $CIRCLE_TEST_REPORTS/golang
-    - cd $PROJECT_PATH && govendor test -race -v +local | go-junit-report > $CIRCLE_TEST_REPORTS/golang/junit.xml
-    - cd $PROJECT_PATH && ./coverage.sh
+    - |
+      export MONGO_TEST_URL=$(docker port $(docker ps | grep mongo | awk '{print $1}') 27017);
+      cd $PROJECT_PATH && govendor test -race -v +local | go-junit-report > $CIRCLE_TEST_REPORTS/golang/junit.xml
+    - |
+      export MONGO_TEST_URL=$(docker port $(docker ps | grep mongo | awk '{print $1}') 27017);
+      cd $PROJECT_PATH && ./coverage.sh
   post:
     - goveralls -coverprofile=$CIRCLE_ARTIFACTS/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN

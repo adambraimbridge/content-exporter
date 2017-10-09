@@ -2,11 +2,10 @@ package export
 
 import (
 	"fmt"
+	"github.com/Financial-Times/content-exporter/content"
 	log "github.com/sirupsen/logrus"
 	"sync"
-	"github.com/Financial-Times/content-exporter/content"
 )
-
 
 type Service struct {
 	sync.RWMutex
@@ -26,19 +25,19 @@ const (
 type Job struct {
 	sync.RWMutex
 	wg           sync.WaitGroup
-	NrWorker     int          `json:"-"`
+	NrWorker     int               `json:"-"`
 	DocIds       chan content.Stub `json:"-"`
-	ID           string       `json:"ID"`
-	Count        int          `json:"Count,omitempty"`
-	Progress     int          `json:"Progress,omitempty"`
-	Failed       []string     `json:"Failed,omitempty"`
-	Status       State        `json:"Status"`
-	ErrorMessage string       `json:"ErrorMessage,omitempty"`
+	ID           string            `json:"ID"`
+	Count        int               `json:"Count,omitempty"`
+	Progress     int               `json:"Progress,omitempty"`
+	Failed       []string          `json:"Failed,omitempty"`
+	Status       State             `json:"Status"`
+	ErrorMessage string            `json:"ErrorMessage,omitempty"`
 }
 
 func NewFullExporter(nrOfWorkers int, exporter *content.Exporter) *Service {
 	return &Service{
-		jobs:                  make(map[string]*Job),
+		jobs: make(map[string]*Job),
 		NrOfConcurrentWorkers: nrOfWorkers,
 		Exporter:              exporter,
 	}

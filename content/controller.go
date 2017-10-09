@@ -4,7 +4,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-
 type Exporter struct {
 	Fetcher  Fetcher
 	Uploader Updater

@@ -3,6 +3,9 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Financial-Times/content-exporter/content"
+	"github.com/Financial-Times/content-exporter/db"
+	"github.com/Financial-Times/content-exporter/export"
 	"github.com/Financial-Times/transactionid-utils-go"
 	"github.com/gorilla/mux"
 	"github.com/pborman/uuid"
@@ -11,9 +14,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"github.com/Financial-Times/content-exporter/export"
-	"github.com/Financial-Times/content-exporter/content"
-	"github.com/Financial-Times/content-exporter/db"
 )
 
 type RequestHandler struct {
