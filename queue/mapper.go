@@ -78,7 +78,7 @@ func (e PublicationEvent) MapNotification() (Notification, error) {
 		evType = UPDATE
 		notificationPayloadMap, ok := e.Payload.(map[string]interface{})
 		if ok {
-			date = content.GetDate(notificationPayloadMap)
+			date = content.GetDateOrDefault(notificationPayloadMap)
 		}
 	}
 

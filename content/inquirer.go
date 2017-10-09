@@ -57,5 +57,5 @@ func mapStub(result map[string]interface{}) (Stub, error) {
 		return Stub{}, fmt.Errorf("No uuid field found in iter result: %v", result)
 	}
 
-	return Stub{docUUID.(string), GetDate(result)}, nil
+	return Stub{docUUID.(string), GetDateOrDefault(result)}, nil
 }

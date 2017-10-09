@@ -36,8 +36,8 @@ func (e *Exporter) HandleContent(tid string, doc Stub) error {
 	return nil
 }
 
-func GetDate(result map[string]interface{}) (date string) {
-	docFirstPublishedDate, ok := result["firstPublishedDate"]
+func GetDateOrDefault(payload map[string]interface{}) (date string) {
+	docFirstPublishedDate, _ := payload["firstPublishedDate"]
 	d, ok := docFirstPublishedDate.(string)
 	if ok {
 		date = strings.Split(d, "T")[0]
@@ -45,7 +45,7 @@ func GetDate(result map[string]interface{}) (date string) {
 	if date != "" {
 		return
 	}
-	docPublishedDate, ok := result["publishedDate"]
+	docPublishedDate, _ := payload["publishedDate"]
 	d, ok = docPublishedDate.(string)
 	if ok {
 		date = strings.Split(d, "T")[0]

@@ -12,8 +12,8 @@ func TestExporterHandleContentWithValidContent(t *testing.T) {
 	date := "2017-10-09"
 	testData := make(map[string]interface{})
 	testData["uuid"] = stubUuid
-	fetcher := &mockFetcher{expectedUuid:stubUuid, expectedTid:tid, result:testData}
-	updater := &mockUpdater{expectedUuid:stubUuid, expectedTid:tid, expectedDate: date, expectedPayload: testData}
+	fetcher := &mockFetcher{expectedUuid: stubUuid, expectedTid: tid, result: testData}
+	updater := &mockUpdater{expectedUuid: stubUuid, expectedTid: tid, expectedDate: date, expectedPayload: testData}
 
 	exporter := NewExporter(fetcher, updater)
 	err := exporter.HandleContent(tid, Stub{stubUuid, date})
@@ -29,7 +29,7 @@ func TestExporterHandleContentWithErrorFromFetcher(t *testing.T) {
 	date := "2017-10-09"
 	testData := make(map[string]interface{})
 	testData["uuid"] = stubUuid
-	fetcher := &mockFetcher{expectedUuid:stubUuid, expectedTid:tid, result:testData, err: errors.New("Fetcher err")}
+	fetcher := &mockFetcher{expectedUuid: stubUuid, expectedTid: tid, result: testData, err: errors.New("Fetcher err")}
 	updater := &mockUpdater{}
 
 	exporter := NewExporter(fetcher, updater)
@@ -47,8 +47,8 @@ func TestExporterHandleContentWithErrorFromUpdater(t *testing.T) {
 	date := "2017-10-09"
 	testData := make(map[string]interface{})
 	testData["uuid"] = stubUuid
-	fetcher := &mockFetcher{expectedUuid:stubUuid, expectedTid:tid, result:testData}
-	updater := &mockUpdater{expectedUuid:stubUuid, expectedTid:tid, expectedDate: date, expectedPayload: testData, err: errors.New("Updater err")}
+	fetcher := &mockFetcher{expectedUuid: stubUuid, expectedTid: tid, result: testData}
+	updater := &mockUpdater{expectedUuid: stubUuid, expectedTid: tid, expectedDate: date, expectedPayload: testData, err: errors.New("Updater err")}
 
 	exporter := NewExporter(fetcher, updater)
 	err := exporter.HandleContent(tid, Stub{stubUuid, date})
@@ -93,4 +93,34 @@ func (u *mockUpdater) Upload(content map[string]interface{}, tid, uuid, date str
 
 func (u *mockUpdater) Delete(uuid, tid string) error {
 	panic("should not be called")
+}
+
+func TestGetDateWhenFirstPublishedDateIsPresent(t *testing.T) {
+	expectedDate := "2006-01-02"
+	firsPublishDate := expectedDate + "T15:04:05Z07:00"
+	publishDate := "2017-01-19T15:04:05Z07:00"
+	testData := make(map[string]interface{})
+	testData["firstPublishedDate"] = firsPublishDate
+	testData["publishedDate"] = publishDate
+
+	actualDate := GetDateOrDefault(testData)
+	assert.Equal(t, expectedDate, actualDate)
+}
+
+func TestGetDateWhenNoFirstPublishedDateButPublishDateIsPresent(t *testing.T) {
+	expectedDate := "2017-01-19"
+	publishDate := "2017-01-19T15:04:05Z07:00"
+	testData := make(map[string]interface{})
+	testData["publishedDate"] = publishDate
+
+	actualDate := GetDateOrDefault(testData)
+	assert.Equal(t, expectedDate, actualDate)
+}
+
+func TestGetDateWhenNeitherFirstPublishedDateNorPublishDateIsPresent(t *testing.T) {
+	expectedDate := "0000-00-00"
+	testData := make(map[string]interface{})
+
+	actualDate := GetDateOrDefault(testData)
+	assert.Equal(t, expectedDate, actualDate)
 }
