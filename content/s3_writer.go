@@ -75,11 +75,11 @@ func (u *S3Updater) CheckHealth() (string, error) {
 
 	resp, err := u.Client.Do(req)
 	if err != nil {
-		return "S3 uploader is not good to go.", err
+		return "S3 Writer is not good to go.", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "S3 uploader is not good to go.", fmt.Errorf("GTG HTTP status code is %v", resp.StatusCode)
+		return "S3 Writer is not good to go.", fmt.Errorf("GTG HTTP status code is %v", resp.StatusCode)
 	}
-	return "S3 uploader is good to go.", nil
+	return "S3 Writer is good to go.", nil
 }

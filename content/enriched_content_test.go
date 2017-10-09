@@ -46,7 +46,7 @@ func (m *mockEnrichedContentServer) GTG() int {
 	return args.Int(0)
 }
 
-func (m *mockEnrichedContentServer) GetRequest(authHeader string, tid string, acceptHeader string, xPolicyHeader string) (int, map[string]interface{}) {
+func (m *mockEnrichedContentServer) GetRequest(authHeader, tid, acceptHeader, xPolicyHeader string) (int, map[string]interface{}) {
 	args := m.Called(authHeader, tid, acceptHeader, xPolicyHeader)
 	var resp map[string]interface{}
 	if len(args) > 1 {
@@ -59,7 +59,7 @@ type mockEnrichedContentServer struct {
 	mock.Mock
 }
 
-func TestGetValidContent(t *testing.T) {
+func TestEnrichedContentFetcherGetValidContent(t *testing.T) {
 	testUUID := uuid.NewUUID().String()
 	testData := make(map[string]interface{})
 	testData["uuid"] = testUUID
@@ -77,7 +77,7 @@ func TestGetValidContent(t *testing.T) {
 	assert.Equal(t, testUUID, resp["uuid"].(string))
 }
 
-func TestGetValidContentWithAuthorizationAndXPolicy(t *testing.T) {
+func TestEnrichedContentFetcherGetValidContentWithAuthorizationAndXPolicy(t *testing.T) {
 	testUUID := uuid.NewUUID().String()
 	testData := make(map[string]interface{})
 	testData["uuid"] = testUUID
@@ -97,7 +97,7 @@ func TestGetValidContentWithAuthorizationAndXPolicy(t *testing.T) {
 	assert.Equal(t, testUUID, resp["uuid"].(string))
 }
 
-func TestGetContentWithAuthError(t *testing.T) {
+func TestEnrichedContentFetcherGetContentWithAuthError(t *testing.T) {
 	testUUID := uuid.NewUUID().String()
 	mockServer := new(mockEnrichedContentServer)
 	auth := "auth-string"
@@ -114,7 +114,7 @@ func TestGetContentWithAuthError(t *testing.T) {
 	assert.Equal(t, "EnrichedContent returned HTTP 401", err.Error())
 }
 
-func TestGetContentWithForbiddenError(t *testing.T) {
+func TestEnrichedContentFetcherGetContentWithForbiddenError(t *testing.T) {
 	testUUID := uuid.NewUUID().String()
 	mockServer := new(mockEnrichedContentServer)
 	auth := "auth-string"
@@ -131,7 +131,7 @@ func TestGetContentWithForbiddenError(t *testing.T) {
 	assert.Equal(t, "Access to content is forbidden. Skipping", err.Error())
 }
 
-func TestCheckHealth(t *testing.T) {
+func TestEnrichedContentFetcherCheckHealth(t *testing.T) {
 	mockServer := new(mockEnrichedContentServer)
 	mockServer.On("GTG").Return(200)
 	server := mockServer.startMockEnrichedContentServer(t)
@@ -144,7 +144,7 @@ func TestCheckHealth(t *testing.T) {
 	mockServer.AssertExpectations(t)
 }
 
-func TestCheckHealthError(t *testing.T) {
+func TestEnrichedContentFetcherCheckHealthError(t *testing.T) {
 	mockServer := new(mockEnrichedContentServer)
 	mockServer.On("GTG").Return(503)
 	server := mockServer.startMockEnrichedContentServer(t)
