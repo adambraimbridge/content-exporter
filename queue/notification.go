@@ -39,37 +39,37 @@ func NewKafkaMessageHandler(exporter *content.Exporter, delayForNotification int
 	}
 }
 
-func (h *KafkaMessageHandler) handleMessage(msg Message, tid string) (Notification, error) {
+func (h *KafkaMessageHandler) handleMessage(msg Message, tid string) (*Notification, error) {
 	pubEvent, err := msg.ToPublicationEvent()
 	if err != nil {
 		log.WithField("transaction_id", tid).WithField("msg", msg.Body).WithError(err).Warn("Skipping event.")
-		return Notification{}, err
+		return &Notification{}, err
 	}
 
 	if msg.HasSynthTransactionID() {
 		log.WithField("transaction_id", tid).WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: Synthetic transaction ID.")
-		return Notification{}, nil
+		return &Notification{}, nil
 	}
 
 	if !pubEvent.Matches(h.WhiteListRegex) {
 		log.WithField("transaction_id", tid).WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: It is not in the whitelist.")
-		return Notification{}, nil
+		return &Notification{}, nil
 	}
 
 	n, err := pubEvent.MapNotification()
 	if err != nil {
 		log.WithField("transaction_id", tid).WithField("msg", msg.Body).WithError(err).Warn("Skipping event: Cannot build notification for message.")
-		return Notification{}, err
+		return &Notification{}, err
 	}
 	n.Tid = tid
 
 	return n, nil
 }
 
-func (e PublicationEvent) MapNotification() (Notification, error) {
+func (e PublicationEvent) MapNotification() (*Notification, error) {
 	UUID := UUIDRegexp.FindString(e.ContentURI)
 	if UUID == "" {
-		return Notification{Stub: content.Stub{}, EvType: EventType("")}, fmt.Errorf("ContentURI does not contain a UUID")
+		return &Notification{Stub: content.Stub{}, EvType: EventType("")}, fmt.Errorf("ContentURI does not contain a UUID")
 	}
 
 	var evType EventType
@@ -85,7 +85,7 @@ func (e PublicationEvent) MapNotification() (Notification, error) {
 		}
 	}
 
-	return Notification{
+	return &Notification{
 		Stub: content.Stub{
 			Uuid: UUID,
 			Date: date,
@@ -95,7 +95,7 @@ func (e PublicationEvent) MapNotification() (Notification, error) {
 	}, nil
 }
 
-func (h *KafkaMessageHandler) HandleNotificationEvent(n Notification) {
+func (h *KafkaMessageHandler) HandleNotificationEvent(n *Notification) {
 	logEntry := log.WithField("transaction_id", n.Tid).WithField("uuid", n.Stub.Uuid)
 	if n.EvType == UPDATE {
 		logEntry.Infof("UPDATE event received. Waiting configured delay - %v second(s)", h.Delay)

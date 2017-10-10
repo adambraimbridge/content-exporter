@@ -22,8 +22,8 @@ type KafkaListener struct {
 	sync.RWMutex
 	paused bool
 	*export.Terminator
-	received            chan Notification
-	pending             map[string]Notification
+	received            chan *Notification
+	pending             map[string]*Notification
 	KafkaMessageHandler *KafkaMessageHandler
 }
 
@@ -32,8 +32,8 @@ func NewKafkaListener(messageConsumer kafka.Consumer, messageHandler *KafkaMessa
 	return &KafkaListener{
 		messageConsumer:     messageConsumer,
 		Locker:              locker,
-		received:            make(chan Notification, chanCap),
-		pending:             make(map[string]Notification, chanCap),
+		received:            make(chan *Notification, chanCap),
+		pending:             make(map[string]*Notification, chanCap),
 		Terminator:          export.NewTerminator(),
 		KafkaMessageHandler: messageHandler,
 	}
@@ -184,7 +184,6 @@ func (h *KafkaListener) handleNotifications() {
 	log.Info("Started handling notifications")
 	for n := range h.received {
 		h.pending[n.Tid] = n
-		log.Debugf("DEBUG Len(received) vs cap(received) - %v vs %v", len(h.received), cap(h.received))
 		if h.paused {
 			log.WithField("transaction_id", n.Tid).Info("PAUSED handling notification")
 			for h.paused {
