@@ -70,12 +70,12 @@ func (u *S3Updater) Upload(content map[string]interface{}, tid, uuid, date strin
 func (u *S3Updater) CheckHealth() (string, error) {
 	req, err := http.NewRequest("GET", u.S3WriterHealthURL, nil)
 	if err != nil {
-		return "Error in building request to check if the S3 uploader is good to go", err
+		return "Error in building request to check if the S3 Writer is good to go", err
 	}
 
 	resp, err := u.Client.Do(req)
 	if err != nil {
-		return "S3 Writer is not good to go.", err
+		return "Error in getting request to check if S3 Writer is good to go.", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

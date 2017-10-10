@@ -4,12 +4,26 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/pborman/uuid"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+type mockHttpClient struct {
+	mock.Mock
+}
+
+func (c *mockHttpClient) Do(req *http.Request) (resp *http.Response, err error) {
+	args := c.Called(req)
+	return args.Get(0).(*http.Response), args.Error(1)
+}
+
+type mockEnrichedContentServer struct {
+	mock.Mock
+}
 
 func (m *mockEnrichedContentServer) startMockEnrichedContentServer(t *testing.T) *httptest.Server {
 	router := mux.NewRouter()
@@ -53,10 +67,6 @@ func (m *mockEnrichedContentServer) GetRequest(authHeader, tid, acceptHeader, xP
 		resp = args.Get(1).(map[string]interface{})
 	}
 	return args.Int(0), resp
-}
-
-type mockEnrichedContentServer struct {
-	mock.Mock
 }
 
 func TestEnrichedContentFetcherGetValidContent(t *testing.T) {
@@ -131,6 +141,30 @@ func TestEnrichedContentFetcherGetContentWithForbiddenError(t *testing.T) {
 	assert.Equal(t, "Access to content is forbidden. Skipping", err.Error())
 }
 
+func TestEnrichedContentFetcherGetContentWithErrorOnNewRequest(t *testing.T) {
+	fetcher := &EnrichedContentFetcher{Client: &http.Client{},
+		EnrichedContentBaseURL: "://",
+	}
+
+	_, err := fetcher.GetContent("uuid1", "tid_1234")
+	assert.Error(t, err)
+	assert.Equal(t, "parse :///enrichedcontent/uuid1: missing protocol scheme", err.Error())
+}
+
+func TestEnrichedContentFetcherGetContentErrorOnRequestDo(t *testing.T) {
+	mockClient := new(mockHttpClient)
+	mockClient.On("Do", mock.AnythingOfType("*http.Request")).Return(&http.Response{}, errors.New("Http Client err"))
+
+	fetcher := &EnrichedContentFetcher{Client: mockClient,
+		EnrichedContentBaseURL: "http://server",
+	}
+
+	_, err := fetcher.GetContent("uuid1", "tid_1234")
+	assert.Error(t, err)
+	assert.Equal(t, "Http Client err", err.Error())
+	mockClient.AssertExpectations(t)
+}
+
 func TestEnrichedContentFetcherCheckHealth(t *testing.T) {
 	mockServer := new(mockEnrichedContentServer)
 	mockServer.On("GTG").Return(200)
@@ -155,6 +189,36 @@ func TestEnrichedContentFetcherCheckHealthError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "EnrichedContent fetcher is not good to go.", resp)
 	mockServer.AssertExpectations(t)
+}
+
+func TestEnrichedContentFetcherCheckHealthErrorOnNewRequest(t *testing.T) {
+	fetcher := &EnrichedContentFetcher{
+		Client: &http.Client{},
+		EnrichedContentHealthURL: "://",
+	}
+
+	resp, err := fetcher.CheckHealth()
+
+	assert.Error(t, err)
+	assert.Equal(t, "parse ://: missing protocol scheme", err.Error())
+	assert.Equal(t, "Error in building request to check if the enrichedContent fetcher is good to go", resp)
+}
+
+func TestEnrichedContentFetcherCheckHealthErrorOnRequestDo(t *testing.T) {
+	mockClient := new(mockHttpClient)
+	mockClient.On("Do", mock.AnythingOfType("*http.Request")).Return(&http.Response{}, errors.New("Http Client err"))
+
+	fetcher := &EnrichedContentFetcher{
+		Client: mockClient,
+		EnrichedContentHealthURL: "http://server",
+		Authorization:            "some-auth",
+	}
+
+	resp, err := fetcher.CheckHealth()
+	assert.Error(t, err)
+	assert.Equal(t, "Http Client err", err.Error())
+	assert.Equal(t, "Error in getting request to check if the enrichedContent fetcher is good to go", resp)
+	mockClient.AssertExpectations(t)
 }
 
 func NewEnrichedContentFetcher(enrichedContentBaseURL, authorization, xPolicyHeaderValues string) Fetcher {

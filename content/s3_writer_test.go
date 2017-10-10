@@ -2,6 +2,7 @@ package content
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/gorilla/mux"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
@@ -132,6 +133,28 @@ func TestS3UpdaterUploadContentErrorParsing(t *testing.T) {
 	mockServer.AssertExpectations(t)
 }
 
+func TestS3UpdaterUploadContentWithErrorOnNewRequest(t *testing.T) {
+	updater := NewS3Updater("://")
+
+	err := updater.Upload(map[string]interface{}{}, "tid_1234", "uuid1", "aDate")
+	assert.Error(t, err)
+	assert.Equal(t, "parse :///content/uuid1?date=aDate: missing protocol scheme", err.Error())
+}
+
+func TestS3UpdaterUploadContentErrorOnRequestDo(t *testing.T) {
+	mockClient := new(mockHttpClient)
+	mockClient.On("Do", mock.AnythingOfType("*http.Request")).Return(&http.Response{}, errors.New("Http Client err"))
+
+	updater := &S3Updater{Client: mockClient,
+		S3WriterBaseURL: "http://server",
+	}
+
+	err := updater.Upload(map[string]interface{}{}, "tid_1234", "uuid1", "aDate")
+	assert.Error(t, err)
+	assert.Equal(t, "Http Client err", err.Error())
+	mockClient.AssertExpectations(t)
+}
+
 func TestS3UpdaterDeleteContent(t *testing.T) {
 	testUUID := uuid.NewUUID().String()
 
@@ -161,6 +184,29 @@ func TestS3UpdaterDeleteContentErrorResponse(t *testing.T) {
 	mockServer.AssertExpectations(t)
 }
 
+func TestS3UpdaterDeleteContentErrorOnNewRequest(t *testing.T) {
+	updater := NewS3Updater("://")
+
+	err := updater.Delete("uuid1", "tid_1234")
+	assert.Error(t, err)
+	assert.Equal(t, "parse :///content/uuid1: missing protocol scheme", err.Error())
+}
+
+func TestS3UpdaterDeleteContentErrorOnRequestDo(t *testing.T) {
+	mockClient := new(mockHttpClient)
+	mockClient.On("Do", mock.AnythingOfType("*http.Request")).Return(&http.Response{}, errors.New("Http Client err"))
+
+	updater := &S3Updater{Client: mockClient,
+		S3WriterBaseURL:   "http://server",
+		S3WriterHealthURL: "http://server",
+	}
+
+	err := updater.Delete("uuid1", "tid_1234")
+	assert.Error(t, err)
+	assert.Equal(t, "Http Client err", err.Error())
+	mockClient.AssertExpectations(t)
+}
+
 func TestS3UpdaterCheckHealth(t *testing.T) {
 	mockServer := new(mockS3WriterServer)
 	mockServer.On("GTG").Return(200)
@@ -185,6 +231,33 @@ func TestS3UpdaterCheckHealthError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "S3 Writer is not good to go.", resp)
 	mockServer.AssertExpectations(t)
+}
+
+func TestS3UpdaterCheckHealthErrorOnNewRequest(t *testing.T) {
+	updater := &S3Updater{Client: &http.Client{},
+		S3WriterHealthURL: "://",
+	}
+
+	resp, err := updater.CheckHealth()
+	assert.Error(t, err)
+	assert.Equal(t, "parse ://: missing protocol scheme", err.Error())
+	assert.Equal(t, "Error in building request to check if the S3 Writer is good to go", resp)
+}
+
+func TestS3UpdaterCheckHealthErrorOnRequestDo(t *testing.T) {
+	mockClient := new(mockHttpClient)
+	mockClient.On("Do", mock.AnythingOfType("*http.Request")).Return(&http.Response{}, errors.New("Http Client err"))
+
+	updater := &S3Updater{Client: mockClient,
+		S3WriterBaseURL:   "http://server",
+		S3WriterHealthURL: "http://server",
+	}
+
+	resp, err := updater.CheckHealth()
+	assert.Error(t, err)
+	assert.Equal(t, "Http Client err", err.Error())
+	assert.Equal(t, "Error in getting request to check if S3 Writer is good to go.", resp)
+	mockClient.AssertExpectations(t)
 }
 
 func NewS3Updater(s3WriterBaseURL string) Updater {

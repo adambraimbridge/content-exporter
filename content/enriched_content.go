@@ -71,7 +71,7 @@ func (e *EnrichedContentFetcher) CheckHealth() (string, error) {
 	}
 	resp, err := e.Client.Do(req)
 	if err != nil {
-		return "EnrichedContent fetcher is not good to go.", err
+		return "Error in getting request to check if the enrichedContent fetcher is good to go", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
