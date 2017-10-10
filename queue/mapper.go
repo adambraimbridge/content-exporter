@@ -6,6 +6,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"regexp"
 	"time"
+	"github.com/Financial-Times/content-exporter/export"
+	"github.com/pkg/errors"
 )
 
 type EventType string
@@ -26,6 +28,7 @@ type KafkaMessageHandler struct {
 	WhiteListRegex  *regexp.Regexp
 	ContentExporter *content.Exporter
 	Delay           int
+	*export.Terminator
 }
 
 func NewKafkaMessageHandler(exporter *content.Exporter, delayForNotification int, whitelistR *regexp.Regexp) *KafkaMessageHandler {
@@ -33,6 +36,7 @@ func NewKafkaMessageHandler(exporter *content.Exporter, delayForNotification int
 		ContentExporter: exporter,
 		Delay:           delayForNotification,
 		WhiteListRegex:  whitelistR,
+		Terminator:      export.NewTerminator(),
 	}
 }
 
@@ -92,10 +96,14 @@ func (h *KafkaMessageHandler) HandleNotificationEvent(n Notification) {
 	logEntry := log.WithField("transaction_id", n.Tid).WithField("uuid", n.Stub.Uuid)
 	if n.EvType == UPDATE {
 		logEntry.Infof("UPDATE event received. Waiting configured delay - %v second(s)", h.Delay)
-		//TODO handle shutdowns correctly, as this will be not gracefully shutdown
-		time.Sleep(time.Duration(h.Delay) * time.Second)
+		select {
+		case <-time.After(time.Duration(h.Delay) * time.Second):
+		case <-h.Quit:
+			logEntry.WithError(errors.New("Shutdown signalled")).Error("FAILED UPDATE event")
+			return
+		}
 		if err := h.ContentExporter.HandleContent(n.Tid, n.Stub); err != nil {
-			log.WithField("transaction_id", n.Tid).WithField("uuid", n.Stub.Uuid).WithError(err).Error("FAILED UPDATE event")
+			logEntry.WithError(err).Error("FAILED UPDATE event")
 		}
 	} else if n.EvType == DELETE {
 		logEntry.Info("DELETE event received")

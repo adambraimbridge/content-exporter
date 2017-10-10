@@ -105,6 +105,7 @@ func (h *KafkaListener) ConsumeMessages() {
 
 	defer func() {
 		h.Terminator.ShutDownPrepared = true
+		h.KafkaMessageHandler.Quit <- struct{}{}
 	}()
 	defer h.messageConsumer.Shutdown()
 
@@ -181,7 +182,9 @@ func (h *KafkaListener) handleNotifications() {
 			}
 			log.WithField("transaction_id", n.Tid).Info("PAUSE finished. Resuming handling notification")
 		}
-
+		if h.ShutDownPrepared {
+			log.WithField("transaction_id", n.Tid).WithField("uuid", n.Stub.Uuid).Error("Service is shutdown")
+		}
 		h.KafkaMessageHandler.HandleNotificationEvent(n)
 
 	}
