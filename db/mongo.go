@@ -134,20 +134,20 @@ var fieldsProjection = bson.M{
 }
 
 func findUUIDsQueryElements(candidates []string) (bson.M, bson.M) {
-	if candidates != nil && len(candidates) != 0 {
-		return bson.M{"uuid": bson.M{"$in": candidates}}, fieldsProjection
+	andQuery := []bson.M{
+		{"$or": []bson.M{
+			{"canBeDistributed": "yes"},
+			{"canBeDistributed": bson.M{"$exists": false}},
+		}},
+		{"$or": []bson.M{
+			{"type": "Article"},
+			{"body": bson.M{"$ne": nil}},
+			{"realtime": true},
+		}},
 	}
-	return bson.M{
-		"$and": []bson.M{
-			{"$or": []bson.M{
-				{"canBeDistributed": "yes"},
-				{"canBeDistributed": bson.M{"$exists": false}},
-			}},
-			{"$or": []bson.M{
-				{"type": "Article"},
-				{"body": bson.M{"$ne": nil}},
-				{"realtime": true},
-			}},
-		},
-	}, fieldsProjection
+	if candidates != nil && len(candidates) != 0 {
+		andQuery = append(andQuery, bson.M{"uuid": bson.M{"$in": candidates}})
+	}
+
+	return bson.M{"$and": andQuery}, fieldsProjection
 }
