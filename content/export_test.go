@@ -1,9 +1,9 @@
 package content
 
 import (
-	"testing"
-	"github.com/stretchr/testify/assert"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestExporterHandleContentWithValidContent(t *testing.T) {

@@ -14,6 +14,10 @@ type MongoInquirer struct {
 	Mongo db.Service
 }
 
+func NewMongoInquirer(mongo db.Service) *MongoInquirer {
+	return &MongoInquirer{Mongo: mongo}
+}
+
 func (m *MongoInquirer) Inquire(collection string, candidates []string) (chan Stub, error, int) {
 	tx, err := m.Mongo.Open()
 
@@ -29,10 +33,9 @@ func (m *MongoInquirer) Inquire(collection string, candidates []string) (chan St
 	docs := make(chan Stub, 8)
 
 	go func() {
-
+		defer close(docs)
 		defer tx.Close()
 		defer iter.Close()
-		defer close(docs)
 
 		var result map[string]interface{}
 		counter := 0

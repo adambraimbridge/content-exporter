@@ -1,14 +1,14 @@
 package content
 
 import (
+	"encoding/json"
+	"github.com/gorilla/mux"
+	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"net/http/httptest"
 	"net/http"
-	"github.com/gorilla/mux"
+	"net/http/httptest"
 	"testing"
-	"encoding/json"
-	"github.com/pborman/uuid"
 	"time"
 )
 
@@ -121,12 +121,12 @@ func TestS3UpdaterUploadContentErrorParsing(t *testing.T) {
 	date := time.Now().UTC().Format("2006-01-02")
 
 	mockServer := new(mockS3WriterServer)
-	
+
 	server := mockServer.startMockS3WriterServer(t)
 
 	updater := NewS3Updater(server.URL)
 
-	err := updater.Upload(map[string]interface{}{"":make(chan int)}, "tid_1234", testUUID, date)
+	err := updater.Upload(map[string]interface{}{"": make(chan int)}, "tid_1234", testUUID, date)
 	assert.Error(t, err)
 	assert.Equal(t, "json: unsupported type: chan int", err.Error())
 	mockServer.AssertExpectations(t)
@@ -189,7 +189,7 @@ func TestS3UpdaterCheckHealthError(t *testing.T) {
 
 func NewS3Updater(s3WriterBaseURL string) Updater {
 	return &S3Updater{Client: &http.Client{},
-		S3WriterBaseURL:      s3WriterBaseURL,
-		S3WriterHealthURL:    s3WriterBaseURL + "/__gtg",
+		S3WriterBaseURL:   s3WriterBaseURL,
+		S3WriterHealthURL: s3WriterBaseURL + "/__gtg",
 	}
 }

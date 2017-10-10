@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Financial-Times/content-exporter/content"
-	"github.com/Financial-Times/content-exporter/db"
 	"github.com/Financial-Times/content-exporter/export"
 	"github.com/Financial-Times/transactionid-utils-go"
 	"github.com/gorilla/mux"
@@ -22,10 +21,10 @@ type RequestHandler struct {
 	*export.Locker
 }
 
-func NewRequestHandler(fullExporter *export.Service, mongo db.Service, locker *export.Locker) *RequestHandler {
+func NewRequestHandler(fullExporter *export.Service, inquirer content.Inquirer, locker *export.Locker) *RequestHandler {
 	return &RequestHandler{
 		FullExporter: fullExporter,
-		Inquirer:     &content.MongoInquirer{Mongo: mongo},
+		Inquirer:     inquirer,
 		Locker:       locker,
 	}
 }

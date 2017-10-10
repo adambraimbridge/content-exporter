@@ -208,16 +208,16 @@ func main() {
 		go func() {
 			healthService := newHealthService(
 				&healthConfig{
-					appSystemCode:          *appSystemCode,
-					appName:                *appName,
-					port:                   *port,
-					db:                     mongo,
+					appSystemCode: *appSystemCode,
+					appName:       *appName,
+					port:          *port,
+					db:            mongo,
 					enrichedContentFetcher: fetcher,
 					s3Uploader:             uploader,
 					queueHandler:           kafkaListener,
 				})
 
-			serveEndpoints(*appSystemCode, *appName, *port, web.NewRequestHandler(fullExporter, mongo, locker), healthService)
+			serveEndpoints(*appSystemCode, *appName, *port, web.NewRequestHandler(fullExporter, content.NewMongoInquirer(mongo), locker), healthService)
 		}()
 
 		waitForSignal()
