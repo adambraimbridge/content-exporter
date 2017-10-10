@@ -23,7 +23,7 @@ type KafkaListener struct {
 	paused bool
 	*export.Terminator
 	received            chan Notification
-	pending             map[Notification]struct{}
+	pending             map[string]Notification
 	KafkaMessageHandler *KafkaMessageHandler
 }
 
@@ -33,7 +33,7 @@ func NewKafkaListener(messageConsumer kafka.Consumer, messageHandler *KafkaMessa
 		messageConsumer:     messageConsumer,
 		Locker:              locker,
 		received:            make(chan Notification, chanCap),
-		pending:             make(map[Notification]struct{}, chanCap),
+		pending:             make(map[string]Notification, chanCap),
 		Terminator:          export.NewTerminator(),
 		KafkaMessageHandler: messageHandler,
 	}
@@ -157,6 +157,12 @@ func (h *KafkaListener) handleMessage(queueMsg kafka.FTMessage) error {
 	if h.paused {
 		log.WithField("transaction_id", tid).Info("PAUSED handling message")
 		for h.paused {
+			if h.ShutDownPrepared {
+				h.Cleanup.Do(func() {
+					close(h.received)
+				})
+				return fmt.Errorf("Service is shutdown")
+			}
 			time.Sleep(time.Millisecond * 500)
 		}
 		log.WithField("transaction_id", tid).Info("PAUSE finished. Resuming handling messages")
@@ -177,7 +183,7 @@ func (h *KafkaListener) handleMessage(queueMsg kafka.FTMessage) error {
 func (h *KafkaListener) handleNotifications() {
 	log.Info("Started handling notifications")
 	for n := range h.received {
-		h.pending[n] = struct{}{}
+		h.pending[n.Tid] = n
 		log.Debugf("DEBUG Len(received) vs cap(received) - %v vs %v", len(h.received), cap(h.received))
 		if h.paused {
 			log.WithField("transaction_id", n.Tid).Info("PAUSED handling notification")
@@ -187,14 +193,14 @@ func (h *KafkaListener) handleNotifications() {
 			log.WithField("transaction_id", n.Tid).Info("PAUSE finished. Resuming handling notification")
 		}
 		h.KafkaMessageHandler.HandleNotificationEvent(n)
-		delete(h.pending, n)
+		delete(h.pending, n.Tid)
 	}
 	log.Info("Stopped handling notifications")
 	h.ShutDown = true
 }
 
 func (h *KafkaListener) TerminatePendingNotifications() {
-	for n := range h.pending {
+	for _, n := range h.pending {
 		n.Quit <- struct{}{}
 	}
 }

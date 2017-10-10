@@ -222,7 +222,7 @@ func main() {
 
 		waitForSignal()
 		kafkaListener.StopConsumingMessages()
-		log.Infoln("Gracefully shut down")
+		log.Info("Gracefully shut down")
 
 	}
 
