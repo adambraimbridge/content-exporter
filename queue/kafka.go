@@ -17,25 +17,27 @@ type MessageHandler interface {
 }
 
 type KafkaListener struct {
-	messageConsumer kafka.Consumer
+	messageConsumer            kafka.Consumer
 	*export.Locker
 	sync.RWMutex
-	paused bool
+	paused                     bool
 	*export.Terminator
-	received            chan *Notification
-	pending             map[string]*Notification
-	KafkaMessageHandler *KafkaMessageHandler
+	received                   chan *Notification
+	pending                    map[string]*Notification
+	ContentNotificationHandler *KafkaContentNotificationHandler
+	MessageMapper *KafkaMessageMapper
 }
 
-func NewKafkaListener(messageConsumer kafka.Consumer, messageHandler *KafkaMessageHandler, locker *export.Locker) *KafkaListener {
+func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *KafkaContentNotificationHandler, messageMapper *KafkaMessageMapper, locker *export.Locker) *KafkaListener {
 	chanCap := 2
 	return &KafkaListener{
-		messageConsumer:     messageConsumer,
-		Locker:              locker,
-		received:            make(chan *Notification, chanCap),
-		pending:             make(map[string]*Notification, chanCap),
-		Terminator:          export.NewTerminator(),
-		KafkaMessageHandler: messageHandler,
+		messageConsumer:            messageConsumer,
+		Locker:                     locker,
+		received:                   make(chan *Notification, chanCap),
+		pending:                    make(map[string]*Notification, chanCap),
+		Terminator:                 export.NewTerminator(),
+		ContentNotificationHandler: notificationHandler,
+		MessageMapper:              messageMapper,
 	}
 }
 
@@ -103,7 +105,7 @@ func (h *KafkaListener) pauseConsuming() {
 }
 
 func (h *KafkaListener) ConsumeMessages() {
-	h.messageConsumer.StartListening(h.handleMessage)
+	h.messageConsumer.StartListening(h.HandleMessage)
 	go h.handleNotifications()
 
 	defer func() {
@@ -144,7 +146,7 @@ func (h *KafkaListener) StopConsumingMessages() {
 	}
 }
 
-func (h *KafkaListener) handleMessage(queueMsg kafka.FTMessage) error {
+func (h *KafkaListener) HandleMessage(queueMsg kafka.FTMessage) error {
 	if h.ShutDownPrepared {
 		h.Cleanup.Do(func() {
 			close(h.received)
@@ -168,9 +170,9 @@ func (h *KafkaListener) handleMessage(queueMsg kafka.FTMessage) error {
 		log.WithField("transaction_id", tid).Info("PAUSE finished. Resuming handling messages")
 	}
 	msg := Message{queueMsg}
-	notif, err := h.KafkaMessageHandler.handleMessage(msg, tid)
-	if notif.EvType != "" {
-		h.received <- notif
+	n, err := h.MessageMapper.MapMessage(msg, tid)
+	if n.EvType != "" {
+		h.received <- n
 	}
 	if h.ShutDownPrepared {
 		h.Cleanup.Do(func() {
@@ -191,7 +193,9 @@ func (h *KafkaListener) handleNotifications() {
 			}
 			log.WithField("transaction_id", n.Tid).Info("PAUSE finished. Resuming handling notification")
 		}
-		h.KafkaMessageHandler.HandleNotificationEvent(n)
+		if err := h.ContentNotificationHandler.HandleContentNotification(n); err != nil {
+			log.WithField("transaction_id", n.Tid).WithField("uuid", n.Stub.Uuid).WithError(err).Error("Failed notification handling")
+		}
 		delete(h.pending, n.Tid)
 	}
 	log.Info("Stopped handling notifications")

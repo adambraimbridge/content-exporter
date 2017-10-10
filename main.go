@@ -201,17 +201,18 @@ func main() {
 			log.WithError(err).Fatal("Whitelist regex MUST compile!")
 		}
 		locker := export.NewLocker()
-		kafkaMessageHandler := queue.NewKafkaMessageHandler(exporter, *delayForNotification, whitelistR)
-		kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, locker)
+		kafkaMessageHandler := queue.NewKafkaContentNotificationHandler(exporter, *delayForNotification)
+		kafkaMessageMapper := &queue.KafkaMessageMapper{WhiteListRegex: whitelistR, }
+		kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, kafkaMessageMapper, locker)
 		go kafkaListener.ConsumeMessages()
 
 		go func() {
 			healthService := newHealthService(
 				&healthConfig{
-					appSystemCode: *appSystemCode,
-					appName:       *appName,
-					port:          *port,
-					db:            mongo,
+					appSystemCode:          *appSystemCode,
+					appName:                *appName,
+					port:                   *port,
+					db:                     mongo,
 					enrichedContentFetcher: fetcher,
 					s3Uploader:             uploader,
 					queueHandler:           kafkaListener,

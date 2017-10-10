@@ -26,12 +26,12 @@ func NewExporter(fetcher Fetcher, updater Updater) *Exporter {
 func (e *Exporter) HandleContent(tid string, doc Stub) error {
 	payload, err := e.Fetcher.GetContent(doc.Uuid, tid)
 	if err != nil {
-		return fmt.Errorf("Error by getting content for %v: %v", doc.Uuid, err)
+		return fmt.Errorf("Error getting content for %v: %v", doc.Uuid, err)
 	}
 
 	err = e.Updater.Upload(payload, tid, doc.Uuid, doc.Date)
 	if err != nil {
-		return fmt.Errorf("Error by uploading content for %v: %v", doc.Uuid, err)
+		return fmt.Errorf("Error uploading content for %v: %v", doc.Uuid, err)
 	}
 	return nil
 }
