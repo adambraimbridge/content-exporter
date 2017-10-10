@@ -3,11 +3,11 @@ package queue
 import (
 	"fmt"
 	"github.com/Financial-Times/content-exporter/content"
+	"github.com/Financial-Times/content-exporter/export"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"regexp"
 	"time"
-	"github.com/Financial-Times/content-exporter/export"
-	"github.com/pkg/errors"
 )
 
 type EventType string
@@ -19,6 +19,7 @@ type Notification struct {
 	Stub   content.Stub
 	EvType EventType
 	Tid    string
+	*export.Terminator
 }
 
 // UUIDRegexp enables to check if a string matches a UUID
@@ -28,7 +29,6 @@ type KafkaMessageHandler struct {
 	WhiteListRegex  *regexp.Regexp
 	ContentExporter *content.Exporter
 	Delay           int
-	*export.Terminator
 }
 
 func NewKafkaMessageHandler(exporter *content.Exporter, delayForNotification int, whitelistR *regexp.Regexp) *KafkaMessageHandler {
@@ -36,7 +36,6 @@ func NewKafkaMessageHandler(exporter *content.Exporter, delayForNotification int
 		ContentExporter: exporter,
 		Delay:           delayForNotification,
 		WhiteListRegex:  whitelistR,
-		Terminator:      export.NewTerminator(),
 	}
 }
 
@@ -86,10 +85,14 @@ func (e PublicationEvent) MapNotification() (Notification, error) {
 		}
 	}
 
-	return Notification{Stub: content.Stub{
-		Uuid: UUID,
-		Date: date,
-	}, EvType: evType}, nil
+	return Notification{
+		Stub: content.Stub{
+			Uuid: UUID,
+			Date: date,
+		},
+		EvType:     evType,
+		Terminator: export.NewTerminator(),
+	}, nil
 }
 
 func (h *KafkaMessageHandler) HandleNotificationEvent(n Notification) {
@@ -98,7 +101,7 @@ func (h *KafkaMessageHandler) HandleNotificationEvent(n Notification) {
 		logEntry.Infof("UPDATE event received. Waiting configured delay - %v second(s)", h.Delay)
 		select {
 		case <-time.After(time.Duration(h.Delay) * time.Second):
-		case <-h.Quit:
+		case <-n.Quit:
 			logEntry.WithError(errors.New("Shutdown signalled")).Error("FAILED UPDATE event")
 			return
 		}

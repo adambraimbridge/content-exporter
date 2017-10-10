@@ -22,15 +22,18 @@ type KafkaListener struct {
 	sync.RWMutex
 	paused bool
 	*export.Terminator
-	notifCh             chan Notification
+	received            chan Notification
+	pending             map[Notification]struct{}
 	KafkaMessageHandler *KafkaMessageHandler
 }
 
 func NewKafkaListener(messageConsumer kafka.Consumer, messageHandler *KafkaMessageHandler, locker *export.Locker) *KafkaListener {
+	chanCap := 2
 	return &KafkaListener{
 		messageConsumer:     messageConsumer,
 		Locker:              locker,
-		notifCh:             make(chan Notification, 2), //TODO when to close? is 30 as a buffer ok?
+		received:            make(chan Notification, chanCap),
+		pending:             make(map[Notification]struct{}, chanCap),
 		Terminator:          export.NewTerminator(),
 		KafkaMessageHandler: messageHandler,
 	}
@@ -105,7 +108,7 @@ func (h *KafkaListener) ConsumeMessages() {
 
 	defer func() {
 		h.Terminator.ShutDownPrepared = true
-		h.KafkaMessageHandler.Quit <- struct{}{}
+		h.TerminatePendingNotifications()
 	}()
 	defer h.messageConsumer.Shutdown()
 
@@ -144,7 +147,7 @@ func (h *KafkaListener) StopConsumingMessages() {
 func (h *KafkaListener) handleMessage(queueMsg kafka.FTMessage) error {
 	if h.ShutDownPrepared {
 		h.Cleanup.Do(func() {
-			close(h.notifCh)
+			close(h.received)
 		})
 		return fmt.Errorf("Service is shutdown")
 	}
@@ -161,11 +164,11 @@ func (h *KafkaListener) handleMessage(queueMsg kafka.FTMessage) error {
 	msg := Message{queueMsg}
 	notif, err := h.KafkaMessageHandler.handleMessage(msg, tid)
 	if notif.EvType != "" {
-		h.notifCh <- notif
+		h.received <- notif
 	}
 	if h.ShutDownPrepared {
 		h.Cleanup.Do(func() {
-			close(h.notifCh)
+			close(h.received)
 		})
 	}
 	return err
@@ -173,8 +176,9 @@ func (h *KafkaListener) handleMessage(queueMsg kafka.FTMessage) error {
 
 func (h *KafkaListener) handleNotifications() {
 	log.Info("Started handling notifications")
-	for n := range h.notifCh {
-		log.Debugf("DEBUG Len(notifCh) vs cap(notifCh) - %v vs %v", len(h.notifCh), cap(h.notifCh))
+	for n := range h.received {
+		h.pending[n] = struct{}{}
+		log.Debugf("DEBUG Len(received) vs cap(received) - %v vs %v", len(h.received), cap(h.received))
 		if h.paused {
 			log.WithField("transaction_id", n.Tid).Info("PAUSED handling notification")
 			for h.paused {
@@ -182,14 +186,17 @@ func (h *KafkaListener) handleNotifications() {
 			}
 			log.WithField("transaction_id", n.Tid).Info("PAUSE finished. Resuming handling notification")
 		}
-		if h.ShutDownPrepared {
-			log.WithField("transaction_id", n.Tid).WithField("uuid", n.Stub.Uuid).Error("Service is shutdown")
-		}
 		h.KafkaMessageHandler.HandleNotificationEvent(n)
-
+		delete(h.pending, n)
 	}
 	log.Info("Stopped handling notifications")
 	h.ShutDown = true
+}
+
+func (h *KafkaListener) TerminatePendingNotifications() {
+	for n := range h.pending {
+		n.Quit <- struct{}{}
+	}
 }
 
 func (h *KafkaListener) CheckHealth() (string, error) {
