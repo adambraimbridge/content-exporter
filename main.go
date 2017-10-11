@@ -31,6 +31,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"io/ioutil"
 )
 
 const appDescription = "Exports content from DB and sends to S3"
@@ -67,7 +68,7 @@ func main() {
 	mongos := app.String(cli.StringOpt{
 		Name:   "mongoConnection",
 		Value:  "",
-		Desc:   "Mongo addresses to connect to in format: host1[:port1][,host2[:port2],...]",
+		Desc:   "Mongo addresses to connect to in format: host1:port1,host2:port2,...]",
 		EnvVar: "MONGO_CONNECTION",
 	})
 	enrichedContentBaseURL := app.String(cli.StringOpt{
@@ -91,7 +92,7 @@ func main() {
 	s3WriterHealthURL := app.String(cli.StringOpt{
 		Name:   "s3WriterHealthURL",
 		Value:  "http://localhost:8080/__gtg",
-		Desc:   "Base URL to S3 writer endpoint",
+		Desc:   "Health URL to S3 writer endpoint",
 		EnvVar: "S3_WRITER_HEALTH_URL",
 	})
 	xPolicyHeaderValues := app.String(cli.StringOpt{
@@ -101,16 +102,16 @@ func main() {
 	})
 	authorization := app.String(cli.StringOpt{
 		Name:   "authorization",
-		Desc:   "Authorization for enrichedcontent endpoint",
+		Desc:   "Authorization for enrichedcontent endpoint, needed only when calling the endpoint via Varnish",
 		EnvVar: "AUTHORIZATION",
 	})
 	consumerAddrs := app.String(cli.StringOpt{
-		Name:   "kafka_addr",
+		Name:   "kafka-addr",
 		Desc:   "Comma separated kafka hosts for message consuming.",
 		EnvVar: "KAFKA_ADDRS",
 	})
 	consumerGroupID := app.String(cli.StringOpt{
-		Name:   "group_id",
+		Name:   "group-id",
 		Desc:   "Kafka qroup id used for message consuming.",
 		EnvVar: "GROUP_ID",
 	})
@@ -133,7 +134,7 @@ func main() {
 	logDebug := app.Bool(cli.BoolOpt{
 		Name:   "logDebug",
 		Value:  false,
-		Desc:   `The whitelist for incoming notifications - i.e. ^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/content/[\w-]+.*$`,
+		Desc:   "Flag to switch debug logging",
 		EnvVar: "LOG_DEBUG",
 	})
 
@@ -177,6 +178,8 @@ func main() {
 		if *logDebug {
 			sarama.Logger = standardlog.New(os.Stdout, "[sarama] ", standardlog.LstdFlags)
 			log.SetLevel(log.DebugLevel)
+		} else {
+			consumerConfig.Zookeeper.Logger = standardlog.New(ioutil.Discard, "", 0)
 		}
 
 		messageConsumer, err := kafka.NewConsumer(*consumerAddrs, *consumerGroupID, []string{*topic}, consumerConfig)

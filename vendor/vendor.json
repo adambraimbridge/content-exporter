@@ -15,12 +15,10 @@
 			"revisionTime": "2017-08-09T12:10:07Z"
 		},
 		{
-			"checksumSHA1": "MwwlRJc2mF5laFO+REnmxD7SmPM=",
+			"checksumSHA1": "2zWKHEDdz/DG19xC+5tmFL5kKmc=",
 			"path": "github.com/Financial-Times/kafka-client-go/kafka",
-			"revision": "de655396819881885c2d4473d900b5e42438bd7a",
-			"revisionTime": "2017-09-15T13:33:32Z",
-			"version": "0.5.0",
-			"versionExact": "0.5.0"
+			"revision": "94c281e68c21e4ae7317fd145553694ae392db8d",
+			"revisionTime": "2017-10-11T13:51:29Z"
 		},
 		{
 			"checksumSHA1": "lQfsRf7gWYQDNoI3IOZuwNGUwRo=",
@@ -193,10 +191,10 @@
 			"revisionTime": "2016-09-27T09:30:20Z"
 		},
 		{
-			"checksumSHA1": "fb7gTGSTMhMnSDN7pIjv8MbG3F4=",
+			"checksumSHA1": "aEmap4x1keixP+5COzkKaJjNrLI=",
 			"path": "github.com/wvanbergen/kazoo-go",
-			"revision": "968957352185472eacb69215fa3dbfcfdbac1096",
-			"revisionTime": "2016-09-30T07:24:34Z"
+			"revision": "2da972bbd3bafbae02dcd0cb755d63c09a9a504d",
+			"revisionTime": "2017-10-10T15:41:45Z"
 		},
 		{
 			"checksumSHA1": "nqWNlnMmVpt628zzvyo6Yv2CX5Q=",
