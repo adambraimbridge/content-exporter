@@ -36,7 +36,7 @@ func TestExporterHandleContentWithErrorFromFetcher(t *testing.T) {
 	err := exporter.HandleContent(tid, Stub{stubUuid, date})
 
 	assert.Error(t, err)
-	assert.Equal(t, "Error by getting content for uuid1: Fetcher err", err.Error())
+	assert.Equal(t, "Error getting content for uuid1: Fetcher err", err.Error())
 	assert.True(t, fetcher.called)
 	assert.False(t, updater.called)
 }
@@ -54,7 +54,7 @@ func TestExporterHandleContentWithErrorFromUpdater(t *testing.T) {
 	err := exporter.HandleContent(tid, Stub{stubUuid, date})
 
 	assert.Error(t, err)
-	assert.Equal(t, "Error by uploading content for uuid1: Updater err", err.Error())
+	assert.Equal(t, "Error uploading content for uuid1: Updater err", err.Error())
 	assert.True(t, fetcher.called)
 	assert.True(t, updater.called)
 }
