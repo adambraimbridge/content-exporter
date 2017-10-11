@@ -126,6 +126,7 @@ func (h *KafkaListener) HandleMessage(msg kafka.FTMessage) error {
 	if n == nil {
 		return err
 	}
+	h.pending[n.Tid] = n
 	select {
 	case h.received <- n:
 	case <-n.Quit:
@@ -144,7 +145,6 @@ func (h *KafkaListener) HandleMessage(msg kafka.FTMessage) error {
 func (h *KafkaListener) handleNotifications() {
 	log.Info("Started handling notifications")
 	for n := range h.received {
-		h.pending[n.Tid] = n
 		if h.paused {
 			log.WithField("transaction_id", n.Tid).Info("PAUSED handling notification")
 			for h.paused {
