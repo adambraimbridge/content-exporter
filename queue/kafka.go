@@ -1,13 +1,10 @@
 package queue
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/Financial-Times/content-exporter/export"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	log "github.com/sirupsen/logrus"
-	"regexp"
-	"strings"
 	"sync"
 	"time"
 )
@@ -17,15 +14,15 @@ type MessageHandler interface {
 }
 
 type KafkaListener struct {
-	messageConsumer            kafka.Consumer
+	messageConsumer kafka.Consumer
 	*export.Locker
 	sync.RWMutex
-	paused                     bool
+	paused bool
 	*export.Terminator
 	received                   chan *Notification
 	pending                    map[string]*Notification
-	ContentNotificationHandler *KafkaContentNotificationHandler
-	MessageMapper *KafkaMessageMapper
+	ContentNotificationHandler ContentNotificationHandler
+	MessageMapper              MessageMapper
 }
 
 func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *KafkaContentNotificationHandler, messageMapper *KafkaMessageMapper, locker *export.Locker) *KafkaListener {
@@ -39,51 +36,6 @@ func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *Kafka
 		ContentNotificationHandler: notificationHandler,
 		MessageMapper:              messageMapper,
 	}
-}
-
-type Message struct {
-	kafka.FTMessage
-}
-
-type PublicationEvent struct {
-	ContentURI   string
-	UUID         string
-	Payload      interface{}
-	LastModified string
-}
-
-func (e PublicationEvent) HasEmptyPayload() bool {
-	switch v := e.Payload.(type) {
-	case nil:
-		return true
-	case string:
-		if len(v) == 0 {
-			return true
-		}
-	case map[string]interface{}:
-		if len(v) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func (e PublicationEvent) Matches(whiteList *regexp.Regexp) bool {
-	return whiteList.MatchString(e.ContentURI)
-}
-
-func (msg Message) ToPublicationEvent() (event PublicationEvent, err error) {
-	err = json.Unmarshal([]byte(msg.Body), &event)
-	return event, err
-}
-
-func (msg Message) HasSynthTransactionID() bool {
-	tid := msg.TransactionID()
-	return strings.HasPrefix(tid, "SYNTH")
-}
-
-func (msg Message) TransactionID() string {
-	return msg.Headers["X-Request-Id"]
 }
 
 func (h *KafkaListener) resumeConsuming() {
@@ -146,7 +98,7 @@ func (h *KafkaListener) StopConsumingMessages() {
 	}
 }
 
-func (h *KafkaListener) HandleMessage(queueMsg kafka.FTMessage) error {
+func (h *KafkaListener) HandleMessage(msg kafka.FTMessage) error {
 	if h.ShutDownPrepared {
 		h.Cleanup.Do(func() {
 			close(h.received)
@@ -154,7 +106,7 @@ func (h *KafkaListener) HandleMessage(queueMsg kafka.FTMessage) error {
 		return fmt.Errorf("Service is shutdown")
 	}
 
-	tid := queueMsg.Headers["X-Request-Id"]
+	tid := msg.Headers["X-Request-Id"]
 
 	if h.paused {
 		log.WithField("transaction_id", tid).Info("PAUSED handling message")
@@ -169,10 +121,17 @@ func (h *KafkaListener) HandleMessage(queueMsg kafka.FTMessage) error {
 		}
 		log.WithField("transaction_id", tid).Info("PAUSE finished. Resuming handling messages")
 	}
-	msg := Message{queueMsg}
-	n, err := h.MessageMapper.MapMessage(msg, tid)
-	if n.EvType != "" {
-		h.received <- n
+
+	n, err := h.MessageMapper.MapNotification(msg)
+	if n == nil {
+		return err
+	}
+	select {
+	case h.received <- n:
+	case <-n.Quit:
+		log.WithField("transaction_id", tid).WithField("uuid", n.Stub.Uuid).Error("Notification handling is terminted")
+		return fmt.Errorf("Notification handling is terminted")
+
 	}
 	if h.ShutDownPrepared {
 		h.Cleanup.Do(func() {

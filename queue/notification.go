@@ -6,7 +6,6 @@ import (
 	"github.com/Financial-Times/content-exporter/export"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"regexp"
 	"time"
 )
 
@@ -22,15 +21,8 @@ type Notification struct {
 	*export.Terminator
 }
 
-// UUIDRegexp enables to check if a string matches a UUID
-var UUIDRegexp = regexp.MustCompile("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}")
-
 type ContentNotificationHandler interface {
 	HandleContentNotification(n *Notification) error
-}
-
-type KafkaMessageMapper struct {
-	WhiteListRegex *regexp.Regexp
 }
 
 type KafkaContentNotificationHandler struct {
@@ -42,37 +34,7 @@ func NewKafkaContentNotificationHandler(exporter *content.Exporter, delayForNoti
 	return &KafkaContentNotificationHandler{
 		ContentExporter: exporter,
 		Delay:           delayForNotification,
-
 	}
-}
-
-func (e PublicationEvent) MapNotification() (*Notification, error) {
-	UUID := UUIDRegexp.FindString(e.ContentURI)
-	if UUID == "" {
-		return &Notification{Stub: content.Stub{}, EvType: EventType("")}, fmt.Errorf("ContentURI does not contain a UUID")
-	}
-
-	var evType EventType
-	var payload map[string]interface{}
-
-	if e.HasEmptyPayload() {
-		evType = DELETE
-	} else {
-		evType = UPDATE
-		notificationPayloadMap, ok := e.Payload.(map[string]interface{})
-		if ok {
-			payload = notificationPayloadMap
-		}
-	}
-
-	return &Notification{
-		Stub: content.Stub{
-			Uuid: UUID,
-			Date: content.GetDateOrDefault(payload),
-		},
-		EvType:     evType,
-		Terminator: export.NewTerminator(),
-	}, nil
 }
 
 func (h *KafkaContentNotificationHandler) HandleContentNotification(n *Notification) error {
@@ -96,31 +58,4 @@ func (h *KafkaContentNotificationHandler) HandleContentNotification(n *Notificat
 		}
 	}
 	return nil
-}
-
-func (h *KafkaMessageMapper) MapMessage(msg Message, tid string) (*Notification, error) {
-	pubEvent, err := msg.ToPublicationEvent()
-	if err != nil {
-		log.WithField("transaction_id", tid).WithField("msg", msg.Body).WithError(err).Warn("Skipping event.")
-		return &Notification{}, err
-	}
-
-	if msg.HasSynthTransactionID() {
-		log.WithField("transaction_id", tid).WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: Synthetic transaction ID.")
-		return &Notification{}, nil
-	}
-
-	if !pubEvent.Matches(h.WhiteListRegex) {
-		log.WithField("transaction_id", tid).WithField("contentUri", pubEvent.ContentURI).Info("Skipping event: It is not in the whitelist.")
-		return &Notification{}, nil
-	}
-
-	n, err := pubEvent.MapNotification()
-	if err != nil {
-		log.WithField("transaction_id", tid).WithField("msg", msg.Body).WithError(err).Warn("Skipping event: Cannot build notification for message.")
-		return &Notification{}, err
-	}
-	n.Tid = tid
-
-	return n, nil
 }

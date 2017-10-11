@@ -70,7 +70,7 @@ func (m *mockEnrichedContentServer) GetRequest(authHeader, tid, acceptHeader, xP
 }
 
 func TestEnrichedContentFetcherGetValidContent(t *testing.T) {
-	testUUID := uuid.NewUUID().String()
+	testUUID := uuid.New()
 	testData := make(map[string]interface{})
 	testData["uuid"] = testUUID
 	mockServer := new(mockEnrichedContentServer)
@@ -88,7 +88,7 @@ func TestEnrichedContentFetcherGetValidContent(t *testing.T) {
 }
 
 func TestEnrichedContentFetcherGetValidContentWithAuthorizationAndXPolicy(t *testing.T) {
-	testUUID := uuid.NewUUID().String()
+	testUUID := uuid.New()
 	testData := make(map[string]interface{})
 	testData["uuid"] = testUUID
 	mockServer := new(mockEnrichedContentServer)
@@ -108,7 +108,7 @@ func TestEnrichedContentFetcherGetValidContentWithAuthorizationAndXPolicy(t *tes
 }
 
 func TestEnrichedContentFetcherGetContentWithAuthError(t *testing.T) {
-	testUUID := uuid.NewUUID().String()
+	testUUID := uuid.New()
 	mockServer := new(mockEnrichedContentServer)
 	auth := "auth-string"
 	xPolicies := "xpolicies"
@@ -125,7 +125,7 @@ func TestEnrichedContentFetcherGetContentWithAuthError(t *testing.T) {
 }
 
 func TestEnrichedContentFetcherGetContentWithForbiddenError(t *testing.T) {
-	testUUID := uuid.NewUUID().String()
+	testUUID := uuid.New()
 	mockServer := new(mockEnrichedContentServer)
 	auth := "auth-string"
 	xPolicies := "xpolicies"

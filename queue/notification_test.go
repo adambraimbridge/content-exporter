@@ -1,12 +1,12 @@
 package queue
 
 import (
-	"testing"
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/export"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/assert"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"testing"
 	"time"
 )
 
@@ -71,7 +71,7 @@ func TestKafkaContentNotificationHandlerHandleUpdateWithQuitSignal(t *testing.T)
 	n := &Notification{Stub: content.Stub{Date: "aDate", Uuid: "uuid1"}, Tid: "tid_1234", EvType: UPDATE, Terminator: export.NewTerminator()}
 	contentNotificationHandler := NewContentNotificationHandler(content.NewExporter(fetcher, updater), 30)
 	go func() {
-		time.Sleep(1)
+		time.Sleep(500 * time.Millisecond)
 		n.Quit <- struct{}{}
 	}()
 	err := contentNotificationHandler.HandleContentNotification(n)

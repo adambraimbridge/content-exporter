@@ -202,17 +202,17 @@ func main() {
 		}
 		locker := export.NewLocker()
 		kafkaMessageHandler := queue.NewKafkaContentNotificationHandler(exporter, *delayForNotification)
-		kafkaMessageMapper := &queue.KafkaMessageMapper{WhiteListRegex: whitelistR, }
+		kafkaMessageMapper := queue.NewKafkaMessageMapper(whitelistR)
 		kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, kafkaMessageMapper, locker)
 		go kafkaListener.ConsumeMessages()
 
 		go func() {
 			healthService := newHealthService(
 				&healthConfig{
-					appSystemCode:          *appSystemCode,
-					appName:                *appName,
-					port:                   *port,
-					db:                     mongo,
+					appSystemCode: *appSystemCode,
+					appName:       *appName,
+					port:          *port,
+					db:            mongo,
 					enrichedContentFetcher: fetcher,
 					s3Uploader:             uploader,
 					queueHandler:           kafkaListener,
