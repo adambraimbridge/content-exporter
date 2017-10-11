@@ -26,7 +26,7 @@ type KafkaListener struct {
 }
 
 func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *KafkaContentNotificationHandler, messageMapper *KafkaMessageMapper, locker *export.Locker) *KafkaListener {
-	chanCap := 2
+	chanCap := 50
 	return &KafkaListener{
 		messageConsumer:            messageConsumer,
 		Locker:                     locker,
