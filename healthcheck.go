@@ -31,7 +31,9 @@ func newHealthService(config *healthConfig) *healthService {
 		svc.MongoCheck(),
 		svc.ReadEndpointCheck(),
 		svc.S3WriterCheck(),
-		svc.KafkaCheck(),
+	}
+	if config.queueHandler != nil {
+		svc.checks = append(svc.checks, svc.KafkaCheck())
 	}
 	return svc
 }

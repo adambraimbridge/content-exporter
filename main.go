@@ -27,11 +27,11 @@ import (
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/Shopify/sarama"
 	"github.com/sethgrid/pester"
+	"io/ioutil"
 	"net"
 	"regexp"
 	"strings"
 	"time"
-	"io/ioutil"
 )
 
 const appDescription = "Exports content from DB and sends to S3"
@@ -122,7 +122,7 @@ func main() {
 	})
 	delayForNotification := app.Int(cli.IntOpt{
 		Name:   "delayForNotification",
-		Value:  0,
+		Value:  30,
 		Desc:   "Delay in seconds for notifications to being handled",
 		EnvVar: "DELAY_FOR_NOTIFICATION",
 	})
@@ -137,9 +137,12 @@ func main() {
 		Desc:   "Flag to switch debug logging",
 		EnvVar: "LOG_DEBUG",
 	})
-
-	log.SetLevel(log.InfoLevel)
-	log.Infof("[Startup] content-exporter is starting ")
+	isIncExportEnabled := app.Bool(cli.BoolOpt{
+		Name:   "is-inc-export-enabled",
+		Value:  false,
+		Desc:   "Flag representing whether incremental exports should run.",
+		EnvVar: "IS_INC_EXPORT_ENABLED",
+	})
 
 	app.Before = func() {
 		if err := checkMongoURLs(*mongos); err != nil {
@@ -148,12 +151,19 @@ func main() {
 		}
 		_, err := regexp.Compile(*whitelist)
 		if err != nil {
+			app.PrintHelp()
 			log.WithError(err).Fatal("Whitelist regex MUST compile!")
 		}
 	}
 
 	app.Action = func() {
-		log.Infof("System code: %s, App Name: %s, Port: %s, Mongo connection: %s", *appSystemCode, *appName, *port, *mongos)
+		if *logDebug {
+			log.SetLevel(log.DebugLevel)
+		} else {
+			log.SetLevel(log.InfoLevel)
+		}
+		log.WithField("event", "service_started").WithField("service_name", *appName).Info("Service started")
+
 		mongo := db.NewMongoDatabase(*mongos, 100)
 
 		tr := &http.Transport{
@@ -172,21 +182,6 @@ func main() {
 		client.MaxRetries = 3
 		client.Concurrency = 1
 
-		consumerConfig := kafka.DefaultConsumerConfig()
-		consumerConfig.ChannelBufferSize = 1
-
-		if *logDebug {
-			sarama.Logger = standardlog.New(os.Stdout, "[sarama] ", standardlog.LstdFlags)
-			log.SetLevel(log.DebugLevel)
-		} else {
-			consumerConfig.Zookeeper.Logger = standardlog.New(ioutil.Discard, "", 0)
-		}
-
-		messageConsumer, err := kafka.NewConsumer(*consumerAddrs, *consumerGroupID, []string{*topic}, consumerConfig)
-		if err != nil {
-			log.WithError(err).Fatal("Cannot create Kafka client")
-		}
-
 		fetcher := &content.EnrichedContentFetcher{
 			Client:                   client,
 			EnrichedContentBaseURL:   *enrichedContentBaseURL,
@@ -198,17 +193,14 @@ func main() {
 
 		exporter := content.NewExporter(fetcher, uploader)
 		fullExporter := export.NewFullExporter(30, exporter)
-
-		whitelistR, err := regexp.Compile(*whitelist)
-		if err != nil {
-			log.WithError(err).Fatal("Whitelist regex MUST compile!")
-		}
 		locker := export.NewLocker()
-		kafkaMessageHandler := queue.NewKafkaContentNotificationHandler(exporter, *delayForNotification)
-		kafkaMessageMapper := queue.NewKafkaMessageMapper(whitelistR)
-		kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, kafkaMessageMapper, locker)
-		go kafkaListener.ConsumeMessages()
-
+		var kafkaListener *queue.KafkaListener
+		if !(*isIncExportEnabled) {
+			log.Warn("INCREMENTAL export is not enabled")
+		} else {
+			kafkaListener = prepareIncrementalExport(logDebug, consumerAddrs, consumerGroupID, topic, whitelist, exporter, delayForNotification, locker)
+			go kafkaListener.ConsumeMessages()
+		}
 		go func() {
 			healthService := newHealthService(
 				&healthConfig{
@@ -225,7 +217,9 @@ func main() {
 		}()
 
 		waitForSignal()
-		kafkaListener.StopConsumingMessages()
+		if *isIncExportEnabled {
+			kafkaListener.StopConsumingMessages()
+		}
 		log.Info("Gracefully shut down")
 
 	}
@@ -235,6 +229,29 @@ func main() {
 		log.Errorf("App could not start, error=[%s]\n", err)
 		return
 	}
+}
+func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGroupID *string, topic *string, whitelist *string, exporter *content.Exporter, delayForNotification *int, locker *export.Locker) *queue.KafkaListener {
+	consumerConfig := kafka.DefaultConsumerConfig()
+	consumerConfig.ChannelBufferSize = 1
+	if *logDebug {
+		sarama.Logger = standardlog.New(os.Stdout, "[sarama] ", standardlog.LstdFlags)
+	} else {
+		consumerConfig.Zookeeper.Logger = standardlog.New(ioutil.Discard, "", 0)
+	}
+	messageConsumer, err := kafka.NewConsumer(*consumerAddrs, *consumerGroupID, []string{*topic}, consumerConfig)
+	if err != nil {
+		log.WithError(err).Fatal("Cannot create Kafka client")
+	}
+	whitelistR, err := regexp.Compile(*whitelist)
+	if err != nil {
+		log.WithError(err).Fatal("Whitelist regex MUST compile!")
+	}
+
+	kafkaMessageHandler := queue.NewKafkaContentNotificationHandler(exporter, *delayForNotification)
+	kafkaMessageMapper := queue.NewKafkaMessageMapper(whitelistR)
+	kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, kafkaMessageMapper, locker)
+
+	return kafkaListener
 }
 
 func serveEndpoints(appSystemCode string, appName string, port string, requestHandler *web.RequestHandler,
