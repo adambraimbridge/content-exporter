@@ -19,13 +19,15 @@ type RequestHandler struct {
 	FullExporter *export.Service
 	Inquirer     content.Inquirer
 	*export.Locker
+	IsIncExportEnabled bool
 }
 
-func NewRequestHandler(fullExporter *export.Service, inquirer content.Inquirer, locker *export.Locker) *RequestHandler {
+func NewRequestHandler(fullExporter *export.Service, inquirer content.Inquirer, locker *export.Locker, isIncExportEnabled bool) *RequestHandler {
 	return &RequestHandler{
 		FullExporter: fullExporter,
 		Inquirer:     inquirer,
 		Locker:       locker,
+		IsIncExportEnabled: isIncExportEnabled,
 	}
 }
 
@@ -40,26 +42,27 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 		return
 	}
 
-	select {
-	case handler.Locker.Locked <- true:
-		log.Info("Lock initiated")
-	case <-time.After(time.Second * 3):
-		msg := "Lock initiation timed out"
-		log.Infof(msg)
-		http.Error(writer, msg, http.StatusServiceUnavailable)
-		return
-	}
+	if handler.IsIncExportEnabled {
+		select {
+		case handler.Locker.Locked <- true:
+			log.Info("Lock initiated")
+		case <-time.After(time.Second * 3):
+			msg := "Lock initiation timed out"
+			log.Infof(msg)
+			http.Error(writer, msg, http.StatusServiceUnavailable)
+			return
+		}
 
-	select {
-	case <-handler.Locker.Acked:
-		log.Info("Locker acquired")
-	case <-time.After(time.Second * 20):
-		msg := "Stopping kafka consumption timed out"
-		log.Infof(msg)
-		http.Error(writer, msg, http.StatusServiceUnavailable)
-		return
+		select {
+		case <-handler.Locker.Acked:
+			log.Info("Locker acquired")
+		case <-time.After(time.Second * 20):
+			msg := "Stopping kafka consumption timed out"
+			log.Infof(msg)
+			http.Error(writer, msg, http.StatusServiceUnavailable)
+			return
+		}
 	}
-
 	candidates := getCandidateUUIDs(request)
 
 	jobID := uuid.New()
@@ -67,10 +70,12 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	handler.FullExporter.AddJob(job)
 
 	go func() {
-		defer func() {
-			log.Info("Locker released")
-			handler.Locker.Locked <- false
-		}()
+		if handler.IsIncExportEnabled {
+			defer func() {
+				log.Info("Locker released")
+				handler.Locker.Locked <- false
+			}()
+		}
 		log.Infoln("Calling mongo")
 		docs, err, count := handler.Inquirer.Inquire("content", candidates)
 		if err != nil {
