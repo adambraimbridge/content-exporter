@@ -1,6 +1,6 @@
 *.iml
 .idea
-content-exporter*
+/content-exporter*
 vendor/*/
 .project
 .vscode

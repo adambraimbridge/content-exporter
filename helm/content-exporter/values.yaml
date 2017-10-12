@@ -1,0 +1,24 @@
+# Default values for content-exporter.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+service:
+  name: "" # The name of the service, should be defined in the specific app-configs folder.
+  hasHealthcheck: "true"
+replicaCount: 1
+image:
+  repository: coco/content-exporter
+  pullPolicy: IfNotPresent
+resources:
+  limits:
+    memory: 256Mi
+env:
+  enriched-content:
+    base-url: "api-policy-component:8080"
+    health-url: "api-policy-component:8080/__gtg"
+  s3-writer:
+    base-url: "content-rw-s3:8080"
+    health-url: "content-rw-s3:8080/__gtg"
+  kafka:
+    group-id: "k8s-content-exporter"
+    topic: "PostPublicationEvents"
+  whitelist: "^http://(methode|wordpress)-article-(transformer|mapper)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$"
