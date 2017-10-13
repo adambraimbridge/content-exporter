@@ -232,7 +232,7 @@ func main() {
 }
 func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGroupID *string, topic *string, whitelist *string, exporter *content.Exporter, delayForNotification *int, locker *export.Locker) *queue.KafkaListener {
 	consumerConfig := kafka.DefaultConsumerConfig()
-	consumerConfig.ChannelBufferSize = 1
+	consumerConfig.ChannelBufferSize = 10
 	if *logDebug {
 		sarama.Logger = standardlog.New(os.Stdout, "[sarama] ", standardlog.LstdFlags)
 	} else {

@@ -24,7 +24,7 @@ type Terminator struct {
 }
 
 func NewTerminator() *Terminator {
-	quitCh := make(chan struct{})
+	quitCh := make(chan struct{},2)
 	return &Terminator{
 		Quit: quitCh,
 	}

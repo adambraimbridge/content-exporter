@@ -26,7 +26,7 @@ type KafkaListener struct {
 }
 
 func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *KafkaContentNotificationHandler, messageMapper *KafkaMessageMapper, locker *export.Locker) *KafkaListener {
-	chanCap := 100
+	chanCap := 200
 	return &KafkaListener{
 		messageConsumer:            messageConsumer,
 		Locker:                     locker,
@@ -164,6 +164,7 @@ func (h *KafkaListener) handleNotifications() {
 func (h *KafkaListener) TerminatePendingNotifications() {
 	for _, n := range h.pending {
 		n.Quit <- struct{}{}
+		close(n.Quit)
 	}
 }
 
