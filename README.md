@@ -11,7 +11,7 @@ The service is used for automated content exports. There are 3 types of export:
     * if it's a DELETE event then deleting the content from S3 via the Data RW S3 service
 * A *TARGETED export* is similar to the FULL export but triggering only for specific data
 
-Normally an `INCREMENTAL export` is happening as the service starts consuming messages from Kafka at the startup.
+An `INCREMENTAL export` is started at the startup and the service starts consuming messages from Kafka ONLY if this functionality is enabled - see configuration.
 
 ## Installation
 
