@@ -26,12 +26,12 @@ type KafkaListener struct {
 }
 
 func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *KafkaContentNotificationHandler, messageMapper *KafkaMessageMapper, locker *export.Locker) *KafkaListener {
-	chanCap := 1000
+	chanCap := 50
 	return &KafkaListener{
 		messageConsumer:            messageConsumer,
 		Locker:                     locker,
 		received:                   make(chan *Notification, chanCap),
-		pending:                    make(map[string]*Notification, chanCap),
+		pending:                    make(map[string]*Notification),
 		Terminator:                 export.NewTerminator(),
 		ContentNotificationHandler: notificationHandler,
 		MessageMapper:              messageMapper,
@@ -152,10 +152,12 @@ func (h *KafkaListener) handleNotifications() {
 			}
 			log.WithField("transaction_id", n.Tid).Info("PAUSE finished. Resuming handling notification")
 		}
-		if err := h.ContentNotificationHandler.HandleContentNotification(n); err != nil {
-			log.WithField("transaction_id", n.Tid).WithField("uuid", n.Stub.Uuid).WithError(err).Error("Failed notification handling")
-		}
-		delete(h.pending, n.Tid)
+		go func(notification *Notification) {
+			if err := h.ContentNotificationHandler.HandleContentNotification(notification); err != nil {
+				log.WithField("transaction_id", notification.Tid).WithField("uuid", notification.Stub.Uuid).WithError(err).Error("Failed notification handling")
+			}
+			delete(h.pending, notification.Tid)
+		}(n)
 	}
 	log.Info("Stopped handling notifications")
 	h.ShutDown = true
