@@ -14,27 +14,29 @@ type MessageHandler interface {
 }
 
 type KafkaListener struct {
-	messageConsumer kafka.Consumer
+	messageConsumer            kafka.Consumer
 	*export.Locker
 	sync.RWMutex
-	paused bool
+	paused                     bool
 	*export.Terminator
 	received                   chan *Notification
 	pending                    map[string]*Notification
 	ContentNotificationHandler ContentNotificationHandler
 	MessageMapper              MessageMapper
+	worker                     chan struct{}
 }
 
 func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *KafkaContentNotificationHandler, messageMapper *KafkaMessageMapper, locker *export.Locker) *KafkaListener {
-	chanCap := 50
+	chanCap := 5000
 	return &KafkaListener{
 		messageConsumer:            messageConsumer,
 		Locker:                     locker,
-		received:                   make(chan *Notification, chanCap),
+		received:                   make(chan *Notification, 1),
 		pending:                    make(map[string]*Notification),
 		Terminator:                 export.NewTerminator(),
 		ContentNotificationHandler: notificationHandler,
 		MessageMapper:              messageMapper,
+		worker:                     make(chan struct{}, chanCap),
 	}
 }
 
@@ -152,7 +154,9 @@ func (h *KafkaListener) handleNotifications() {
 			}
 			log.WithField("transaction_id", n.Tid).Info("PAUSE finished. Resuming handling notification")
 		}
+		h.worker <- struct{}{}
 		go func(notification *Notification) {
+			defer func() { <-h.worker }()
 			if err := h.ContentNotificationHandler.HandleContentNotification(notification); err != nil {
 				log.WithField("transaction_id", notification.Tid).WithField("uuid", notification.Stub.Uuid).WithError(err).Error("Failed notification handling")
 			}
