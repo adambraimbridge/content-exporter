@@ -2,7 +2,6 @@ package content
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -10,7 +9,7 @@ import (
 const s3WriterPath = "/content/"
 
 type Updater interface {
-	Upload(content map[string]interface{}, tid, uuid, date string) error
+	Upload(content []byte, tid, uuid, date string) error
 	Delete(uuid, tid string) error
 }
 
@@ -40,9 +39,9 @@ func (u *S3Updater) Delete(uuid, tid string) error {
 	return nil
 }
 
-func (u *S3Updater) Upload(content map[string]interface{}, tid, uuid, date string) error {
+func (u *S3Updater) Upload(content []byte, tid, uuid, date string) error {
 	buf := new(bytes.Buffer)
-	err := json.NewEncoder(buf).Encode(content)
+	_, err := buf.Read(content)
 	if err != nil {
 		return err
 	}
