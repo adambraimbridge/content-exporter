@@ -2,6 +2,7 @@ package content
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -52,10 +53,7 @@ func (e *EnrichedContentFetcher) GetContent(uuid, tid string) ([]byte, error) {
 		return nil, fmt.Errorf("EnrichedContent returned HTTP %v", resp.StatusCode)
 	}
 
-	var body []byte
-	_, err = resp.Body.Read(body)
-
-	return body, err
+	return ioutil.ReadAll(resp.Body)
 }
 
 func (e *EnrichedContentFetcher) CheckHealth() (string, error) {

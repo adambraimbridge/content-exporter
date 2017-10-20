@@ -1,16 +1,17 @@
 package content
 
 import (
-	"encoding/json"
 	"errors"
-	"github.com/gorilla/mux"
-	"github.com/pborman/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/pborman/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func (m *mockS3WriterServer) startMockS3WriterServer(t *testing.T) *httptest.Server {
@@ -26,15 +27,9 @@ func (m *mockS3WriterServer) startMockS3WriterServer(t *testing.T) *httptest.Ser
 		assert.NotNil(t, pathUuid)
 		assert.True(t, ok)
 
-		body := make(map[string]interface{})
-		dec := json.NewDecoder(r.Body)
-		err := dec.Decode(&body)
-
+		body, err := ioutil.ReadAll(r.Body)
 		assert.NoError(t, err)
-
-		bodyUuid, ok := body["uuid"]
-		assert.NotNil(t, bodyUuid)
-		assert.True(t, ok)
+		assert.True(t, len(body) > 0)
 
 		date := r.URL.Query().Get("date")
 
@@ -84,8 +79,7 @@ type mockS3WriterServer struct {
 
 func TestS3UpdaterUploadContent(t *testing.T) {
 	testUUID := uuid.NewUUID().String()
-	testData := make(map[string]interface{})
-	testData["uuid"] = testUUID
+	testData := []byte(testUUID)
 	date := time.Now().UTC().Format("2006-01-02")
 
 	mockServer := new(mockS3WriterServer)
@@ -101,8 +95,7 @@ func TestS3UpdaterUploadContent(t *testing.T) {
 
 func TestS3UpdaterUploadContentErrorResponse(t *testing.T) {
 	testUUID := uuid.NewUUID().String()
-	testData := make(map[string]interface{})
-	testData["uuid"] = testUUID
+	testData := []byte(testUUID)
 	date := time.Now().UTC().Format("2006-01-02")
 
 	mockServer := new(mockS3WriterServer)
@@ -117,26 +110,10 @@ func TestS3UpdaterUploadContentErrorResponse(t *testing.T) {
 	mockServer.AssertExpectations(t)
 }
 
-func TestS3UpdaterUploadContentErrorParsing(t *testing.T) {
-	testUUID := uuid.NewUUID().String()
-	date := time.Now().UTC().Format("2006-01-02")
-
-	mockServer := new(mockS3WriterServer)
-
-	server := mockServer.startMockS3WriterServer(t)
-
-	updater := NewS3Updater(server.URL)
-
-	err := updater.Upload(map[string]interface{}{"": make(chan int)}, "tid_1234", testUUID, date)
-	assert.Error(t, err)
-	assert.Equal(t, "json: unsupported type: chan int", err.Error())
-	mockServer.AssertExpectations(t)
-}
-
 func TestS3UpdaterUploadContentWithErrorOnNewRequest(t *testing.T) {
 	updater := NewS3Updater("://")
 
-	err := updater.Upload(map[string]interface{}{}, "tid_1234", "uuid1", "aDate")
+	err := updater.Upload(nil, "tid_1234", "uuid1", "aDate")
 	assert.Error(t, err)
 	assert.Equal(t, "parse :///content/uuid1?date=aDate: missing protocol scheme", err.Error())
 }
@@ -149,7 +126,7 @@ func TestS3UpdaterUploadContentErrorOnRequestDo(t *testing.T) {
 		S3WriterBaseURL: "http://server",
 	}
 
-	err := updater.Upload(map[string]interface{}{}, "tid_1234", "uuid1", "aDate")
+	err := updater.Upload(nil, "tid_1234", "uuid1", "aDate")
 	assert.Error(t, err)
 	assert.Equal(t, "Http Client err", err.Error())
 	mockClient.AssertExpectations(t)

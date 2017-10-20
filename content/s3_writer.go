@@ -41,7 +41,7 @@ func (u *S3Updater) Delete(uuid, tid string) error {
 
 func (u *S3Updater) Upload(content []byte, tid, uuid, date string) error {
 	buf := new(bytes.Buffer)
-	_, err := buf.Read(content)
+	_, err := buf.Write(content)
 	if err != nil {
 		return err
 	}
