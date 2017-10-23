@@ -143,6 +143,12 @@ func main() {
 		Desc:   "Flag representing whether incremental exports should run.",
 		EnvVar: "IS_INC_EXPORT_ENABLED",
 	})
+	maxGoRoutines := app.Int(cli.IntOpt{
+		Name:   "maxGoRoutines",
+		Value:  100,
+		Desc:   "Maximum goroutines to allocate for kafka message handling",
+		EnvVar: "MAX_GO_ROUTINES",
+	})
 
 	app.Before = func() {
 		if err := checkMongoURLs(*mongos); err != nil {
@@ -198,16 +204,16 @@ func main() {
 		if !(*isIncExportEnabled) {
 			log.Warn("INCREMENTAL export is not enabled")
 		} else {
-			kafkaListener = prepareIncrementalExport(logDebug, consumerAddrs, consumerGroupID, topic, whitelist, exporter, delayForNotification, locker)
+			kafkaListener = prepareIncrementalExport(logDebug, consumerAddrs, consumerGroupID, topic, whitelist, exporter, delayForNotification, locker, maxGoRoutines)
 			go kafkaListener.ConsumeMessages()
 		}
 		go func() {
 			healthService := newHealthService(
 				&healthConfig{
-					appSystemCode:          *appSystemCode,
-					appName:                *appName,
-					port:                   *port,
-					db:                     mongo,
+					appSystemCode: *appSystemCode,
+					appName:       *appName,
+					port:          *port,
+					db:            mongo,
 					enrichedContentFetcher: fetcher,
 					s3Uploader:             uploader,
 					queueHandler:           kafkaListener,
@@ -230,7 +236,7 @@ func main() {
 		return
 	}
 }
-func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGroupID *string, topic *string, whitelist *string, exporter *content.Exporter, delayForNotification *int, locker *export.Locker) *queue.KafkaListener {
+func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGroupID *string, topic *string, whitelist *string, exporter *content.Exporter, delayForNotification *int, locker *export.Locker, maxGoRoutines *int) *queue.KafkaListener {
 	consumerConfig := kafka.DefaultConsumerConfig()
 	consumerConfig.ChannelBufferSize = 10
 	if *logDebug {
@@ -249,7 +255,7 @@ func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGro
 
 	kafkaMessageHandler := queue.NewKafkaContentNotificationHandler(exporter, *delayForNotification)
 	kafkaMessageMapper := queue.NewKafkaMessageMapper(whitelistR)
-	kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, kafkaMessageMapper, locker)
+	kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, kafkaMessageMapper, locker, *maxGoRoutines)
 
 	return kafkaListener
 }
