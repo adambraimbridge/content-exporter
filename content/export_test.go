@@ -1,17 +1,17 @@
 package content
 
 import (
+	"testing"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestExporterHandleContentWithValidContent(t *testing.T) {
 	tid := "tid_1234"
 	stubUuid := "uuid1"
 	date := "2017-10-09"
-	testData := make(map[string]interface{})
-	testData["uuid"] = stubUuid
+	testData := []byte(stubUuid)
 	fetcher := &mockFetcher{expectedUuid: stubUuid, expectedTid: tid, result: testData}
 	updater := &mockUpdater{expectedUuid: stubUuid, expectedTid: tid, expectedDate: date, expectedPayload: testData}
 
@@ -27,8 +27,7 @@ func TestExporterHandleContentWithErrorFromFetcher(t *testing.T) {
 	tid := "tid_1234"
 	stubUuid := "uuid1"
 	date := "2017-10-09"
-	testData := make(map[string]interface{})
-	testData["uuid"] = stubUuid
+	testData := []byte("uuid: " + stubUuid)
 	fetcher := &mockFetcher{expectedUuid: stubUuid, expectedTid: tid, result: testData, err: errors.New("Fetcher err")}
 	updater := &mockUpdater{}
 
@@ -45,8 +44,7 @@ func TestExporterHandleContentWithErrorFromUpdater(t *testing.T) {
 	tid := "tid_1234"
 	stubUuid := "uuid1"
 	date := "2017-10-09"
-	testData := make(map[string]interface{})
-	testData["uuid"] = stubUuid
+	testData := []byte("uuid: " + stubUuid)
 	fetcher := &mockFetcher{expectedUuid: stubUuid, expectedTid: tid, result: testData}
 	updater := &mockUpdater{expectedUuid: stubUuid, expectedTid: tid, expectedDate: date, expectedPayload: testData, err: errors.New("Updater err")}
 
@@ -62,12 +60,12 @@ func TestExporterHandleContentWithErrorFromUpdater(t *testing.T) {
 type mockFetcher struct {
 	t                         *testing.T
 	expectedUuid, expectedTid string
-	result                    map[string]interface{}
+	result                    []byte
 	err                       error
 	called                    bool
 }
 
-func (f *mockFetcher) GetContent(uuid, tid string) (map[string]interface{}, error) {
+func (f *mockFetcher) GetContent(uuid, tid string) ([]byte, error) {
 	assert.Equal(f.t, f.expectedUuid, uuid)
 	assert.Equal(f.t, f.expectedTid, tid)
 	f.called = true
@@ -77,12 +75,12 @@ func (f *mockFetcher) GetContent(uuid, tid string) (map[string]interface{}, erro
 type mockUpdater struct {
 	t                                       *testing.T
 	expectedUuid, expectedTid, expectedDate string
-	expectedPayload                         map[string]interface{}
+	expectedPayload                         []byte
 	err                                     error
 	called                                  bool
 }
 
-func (u *mockUpdater) Upload(content map[string]interface{}, tid, uuid, date string) error {
+func (u *mockUpdater) Upload(content []byte, tid, uuid, date string) error {
 	assert.Equal(u.t, u.expectedUuid, uuid)
 	assert.Equal(u.t, u.expectedTid, tid)
 	assert.Equal(u.t, u.expectedDate, date)

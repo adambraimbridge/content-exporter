@@ -1,15 +1,16 @@
 package content
 
 import (
-	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/gorilla/mux"
 	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 type mockHttpClient struct {
@@ -41,11 +42,8 @@ func (m *mockEnrichedContentServer) startMockEnrichedContentServer(t *testing.T)
 		assert.True(t, ok)
 
 		respStatus, resp := m.GetRequest(authHeader, tid, acceptHeader, xPolicyHeader)
-
 		w.WriteHeader(respStatus)
-		if len(resp) != 0 {
-			assert.NoError(t, json.NewEncoder(w).Encode(resp))
-		}
+		w.Write(resp)
 	}).Methods(http.MethodGet)
 
 	router.HandleFunc("/__gtg", func(w http.ResponseWriter, r *http.Request) {
@@ -60,19 +58,18 @@ func (m *mockEnrichedContentServer) GTG() int {
 	return args.Int(0)
 }
 
-func (m *mockEnrichedContentServer) GetRequest(authHeader, tid, acceptHeader, xPolicyHeader string) (int, map[string]interface{}) {
+func (m *mockEnrichedContentServer) GetRequest(authHeader, tid, acceptHeader, xPolicyHeader string) (int, []byte) {
 	args := m.Called(authHeader, tid, acceptHeader, xPolicyHeader)
-	var resp map[string]interface{}
+	var resp []byte
 	if len(args) > 1 {
-		resp = args.Get(1).(map[string]interface{})
+		resp = args.Get(1).([]byte)
 	}
 	return args.Int(0), resp
 }
 
 func TestEnrichedContentFetcherGetValidContent(t *testing.T) {
 	testUUID := uuid.New()
-	testData := make(map[string]interface{})
-	testData["uuid"] = testUUID
+	testData := []byte(testUUID)
 	mockServer := new(mockEnrichedContentServer)
 	mockServer.On("GetRequest", "", "tid_1234", "application/json", "").Return(200, testData)
 
@@ -81,16 +78,16 @@ func TestEnrichedContentFetcherGetValidContent(t *testing.T) {
 	fetcher := NewEnrichedContentFetcher(server.URL, "", "")
 
 	resp, err := fetcher.GetContent(testUUID, "tid_1234")
+
 	assert.NoError(t, err)
 	mockServer.AssertExpectations(t)
-	assert.True(t, len(resp) == 1)
-	assert.Equal(t, testUUID, resp["uuid"].(string))
+	assert.Equal(t, len(testData), len(resp))
+	assert.Equal(t, testUUID, fmt.Sprintf("%s", resp))
 }
 
 func TestEnrichedContentFetcherGetValidContentWithAuthorizationAndXPolicy(t *testing.T) {
 	testUUID := uuid.New()
-	testData := make(map[string]interface{})
-	testData["uuid"] = testUUID
+	testData := []byte(testUUID)
 	mockServer := new(mockEnrichedContentServer)
 	auth := "auth-string"
 	xPolicies := "xpolicies"
@@ -103,8 +100,8 @@ func TestEnrichedContentFetcherGetValidContentWithAuthorizationAndXPolicy(t *tes
 	resp, err := fetcher.GetContent(testUUID, "tid_1234")
 	assert.NoError(t, err)
 	mockServer.AssertExpectations(t)
-	assert.True(t, len(resp) == 1)
-	assert.Equal(t, testUUID, resp["uuid"].(string))
+	assert.Equal(t, len(testData), len(resp))
+	assert.Equal(t, testUUID, fmt.Sprintf("%s", resp))
 }
 
 func TestEnrichedContentFetcherGetContentWithAuthError(t *testing.T) {

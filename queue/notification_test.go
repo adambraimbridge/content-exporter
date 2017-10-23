@@ -1,29 +1,30 @@
 package queue
 
 import (
+	"testing"
+	"time"
+
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/export"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"testing"
-	"time"
 )
 
 type mockFetcher struct {
 	mock.Mock
 }
 
-func (m *mockFetcher) GetContent(uuid, tid string) (map[string]interface{}, error) {
+func (m *mockFetcher) GetContent(uuid, tid string) ([]byte, error) {
 	args := m.Called(uuid, tid)
-	return args.Get(0).(map[string]interface{}), args.Error(1)
+	return args.Get(0).([]byte), args.Error(1)
 }
 
 type mockUpdater struct {
 	mock.Mock
 }
 
-func (m *mockUpdater) Upload(content map[string]interface{}, tid, uuid, date string) error {
+func (m *mockUpdater) Upload(content []byte, tid, uuid, date string) error {
 	args := m.Called(content, tid, uuid, date)
 	return args.Error(0)
 }
@@ -38,7 +39,8 @@ func TestKafkaContentNotificationHandlerHandleUpdateSuccessfully(t *testing.T) {
 	updater := new(mockUpdater)
 	n := &Notification{Stub: content.Stub{Date: "aDate", Uuid: "uuid1"}, Tid: "tid_1234", EvType: UPDATE, Terminator: export.NewTerminator()}
 	contentNotificationHandler := NewContentNotificationHandler(content.NewExporter(fetcher, updater), 0)
-	var testData map[string]interface{}
+
+	var testData []byte
 	fetcher.On("GetContent", n.Stub.Uuid, n.Tid).Return(testData, nil)
 	updater.On("Upload", testData, n.Tid, n.Stub.Uuid, n.Stub.Date).Return(nil)
 
@@ -54,7 +56,7 @@ func TestKafkaContentNotificationHandlerHandleUpdateWithError(t *testing.T) {
 	updater := new(mockUpdater)
 	n := &Notification{Stub: content.Stub{Date: "aDate", Uuid: "uuid1"}, Tid: "tid_1234", EvType: UPDATE, Terminator: export.NewTerminator()}
 	contentNotificationHandler := NewContentNotificationHandler(content.NewExporter(fetcher, updater), 0)
-	var testData map[string]interface{}
+	var testData []byte
 	fetcher.On("GetContent", n.Stub.Uuid, n.Tid).Return(testData, errors.New("Fetcher err"))
 
 	err := contentNotificationHandler.HandleContentNotification(n)

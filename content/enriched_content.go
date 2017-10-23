@@ -1,8 +1,8 @@
 package content
 
 import (
-	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -13,7 +13,7 @@ type Client interface {
 const enrichedContentPath = "/enrichedcontent/"
 
 type Fetcher interface {
-	GetContent(uuid, tid string) (map[string]interface{}, error)
+	GetContent(uuid, tid string) ([]byte, error)
 }
 
 type EnrichedContentFetcher struct {
@@ -24,7 +24,7 @@ type EnrichedContentFetcher struct {
 	Authorization            string
 }
 
-func (e *EnrichedContentFetcher) GetContent(uuid, tid string) (map[string]interface{}, error) {
+func (e *EnrichedContentFetcher) GetContent(uuid, tid string) ([]byte, error) {
 	req, err := http.NewRequest("GET", e.EnrichedContentBaseURL+enrichedContentPath+uuid, nil)
 	if err != nil {
 		return nil, err
@@ -53,11 +53,7 @@ func (e *EnrichedContentFetcher) GetContent(uuid, tid string) (map[string]interf
 		return nil, fmt.Errorf("EnrichedContent returned HTTP %v", resp.StatusCode)
 	}
 
-	var result map[string]interface{}
-	dec := json.NewDecoder(resp.Body)
-	err = dec.Decode(&result)
-	return result, err
-
+	return ioutil.ReadAll(resp.Body)
 }
 
 func (e *EnrichedContentFetcher) CheckHealth() (string, error) {
