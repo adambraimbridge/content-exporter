@@ -26,7 +26,7 @@ type KafkaListener struct {
 	worker                     chan struct{}
 }
 
-func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *KafkaContentNotificationHandler, messageMapper *KafkaMessageMapper, locker *export.Locker, maxGoRoutine int) *KafkaListener {
+func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *KafkaContentNotificationHandler, messageMapper *KafkaMessageMapper, locker *export.Locker, maxGoRoutines int) *KafkaListener {
 	return &KafkaListener{
 		messageConsumer:            messageConsumer,
 		Locker:                     locker,
@@ -35,7 +35,7 @@ func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *Kafka
 		Terminator:                 export.NewTerminator(),
 		ContentNotificationHandler: notificationHandler,
 		MessageMapper:              messageMapper,
-		worker:                     make(chan struct{}, maxGoRoutine),
+		worker:                     make(chan struct{}, maxGoRoutines),
 	}
 }
 

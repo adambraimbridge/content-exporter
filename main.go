@@ -143,11 +143,11 @@ func main() {
 		Desc:   "Flag representing whether incremental exports should run.",
 		EnvVar: "IS_INC_EXPORT_ENABLED",
 	})
-	maxGoRoutine := app.Int(cli.IntOpt{
-		Name:   "maxGoRoutine",
+	maxGoRoutines := app.Int(cli.IntOpt{
+		Name:   "maxGoRoutines",
 		Value:  100,
 		Desc:   "Maximum goroutines to allocate for kafka message handling",
-		EnvVar: "MAX_GO_ROUTINE",
+		EnvVar: "MAX_GO_ROUTINES",
 	})
 
 	app.Before = func() {
@@ -204,7 +204,7 @@ func main() {
 		if !(*isIncExportEnabled) {
 			log.Warn("INCREMENTAL export is not enabled")
 		} else {
-			kafkaListener = prepareIncrementalExport(logDebug, consumerAddrs, consumerGroupID, topic, whitelist, exporter, delayForNotification, locker, maxGoRoutine)
+			kafkaListener = prepareIncrementalExport(logDebug, consumerAddrs, consumerGroupID, topic, whitelist, exporter, delayForNotification, locker, maxGoRoutines)
 			go kafkaListener.ConsumeMessages()
 		}
 		go func() {
@@ -236,7 +236,7 @@ func main() {
 		return
 	}
 }
-func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGroupID *string, topic *string, whitelist *string, exporter *content.Exporter, delayForNotification *int, locker *export.Locker, maxGoRoutine *int) *queue.KafkaListener {
+func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGroupID *string, topic *string, whitelist *string, exporter *content.Exporter, delayForNotification *int, locker *export.Locker, maxGoRoutines *int) *queue.KafkaListener {
 	consumerConfig := kafka.DefaultConsumerConfig()
 	consumerConfig.ChannelBufferSize = 10
 	if *logDebug {
@@ -255,7 +255,7 @@ func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGro
 
 	kafkaMessageHandler := queue.NewKafkaContentNotificationHandler(exporter, *delayForNotification)
 	kafkaMessageMapper := queue.NewKafkaMessageMapper(whitelistR)
-	kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, kafkaMessageMapper, locker, *maxGoRoutine)
+	kafkaListener := queue.NewKafkaListener(messageConsumer, kafkaMessageHandler, kafkaMessageMapper, locker, *maxGoRoutines)
 
 	return kafkaListener
 }
