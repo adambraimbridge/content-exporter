@@ -127,7 +127,9 @@ func (h *KafkaListener) HandleMessage(msg kafka.FTMessage) error {
 	if n == nil {
 		return err
 	}
+	h.Lock()
 	h.pending[n.Tid] = n
+	h.Unlock()
 	select {
 	case h.received <- n:
 	case <-n.Quit:
@@ -159,7 +161,9 @@ func (h *KafkaListener) handleNotifications() {
 			if err := h.ContentNotificationHandler.HandleContentNotification(notification); err != nil {
 				log.WithField("transaction_id", notification.Tid).WithField("uuid", notification.Stub.Uuid).WithError(err).Error("Failed notification handling")
 			}
+			h.Lock()
 			delete(h.pending, notification.Tid)
+			h.Unlock()
 		}(n)
 	}
 	log.Info("Stopped handling notifications")
@@ -167,10 +171,12 @@ func (h *KafkaListener) handleNotifications() {
 }
 
 func (h *KafkaListener) TerminatePendingNotifications() {
+	h.RLock()
 	for _, n := range h.pending {
 		n.Quit <- struct{}{}
 		close(n.Quit)
 	}
+	h.RUnlock()
 }
 
 func (h *KafkaListener) CheckHealth() (string, error) {
