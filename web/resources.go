@@ -24,9 +24,9 @@ type RequestHandler struct {
 
 func NewRequestHandler(fullExporter *export.Service, inquirer content.Inquirer, locker *export.Locker, isIncExportEnabled bool) *RequestHandler {
 	return &RequestHandler{
-		FullExporter: fullExporter,
-		Inquirer:     inquirer,
-		Locker:       locker,
+		FullExporter:       fullExporter,
+		Inquirer:           inquirer,
+		Locker:             locker,
 		IsIncExportEnabled: isIncExportEnabled,
 	}
 }

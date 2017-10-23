@@ -14,10 +14,10 @@ type MessageHandler interface {
 }
 
 type KafkaListener struct {
-	messageConsumer            kafka.Consumer
+	messageConsumer kafka.Consumer
 	*export.Locker
 	sync.RWMutex
-	paused                     bool
+	paused bool
 	*export.Terminator
 	received                   chan *Notification
 	pending                    map[string]*Notification
@@ -26,8 +26,7 @@ type KafkaListener struct {
 	worker                     chan struct{}
 }
 
-func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *KafkaContentNotificationHandler, messageMapper *KafkaMessageMapper, locker *export.Locker) *KafkaListener {
-	chanCap := 5000
+func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *KafkaContentNotificationHandler, messageMapper *KafkaMessageMapper, locker *export.Locker, maxGoRoutine int) *KafkaListener {
 	return &KafkaListener{
 		messageConsumer:            messageConsumer,
 		Locker:                     locker,
@@ -36,7 +35,7 @@ func NewKafkaListener(messageConsumer kafka.Consumer, notificationHandler *Kafka
 		Terminator:                 export.NewTerminator(),
 		ContentNotificationHandler: notificationHandler,
 		MessageMapper:              messageMapper,
-		worker:                     make(chan struct{}, chanCap),
+		worker:                     make(chan struct{}, maxGoRoutine),
 	}
 }
 

@@ -56,6 +56,7 @@ Usage: content-exporter [OPTIONS]
           --delayForNotification=30                                  Delay in seconds for notifications to being handled ($DELAY_FOR_NOTIFICATION)
           --whitelist=""                                             The whitelist for incoming notifications - i.e. ^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/content/[\w-]+.*$ ($WHITELIST)
           --logDebug=false                                           Flag to switch debug logging ($LOG_DEBUG)
+          --maxGoRoutine=100                                         Maximum goroutines to allocate for kafka message handling ($MAX_GO_ROUTINE)
 3. Test:
 
            curl http://localhost:8080/__health
