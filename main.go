@@ -126,6 +126,12 @@ func main() {
 		Desc:   "Delay in seconds for notifications to being handled",
 		EnvVar: "DELAY_FOR_NOTIFICATION",
 	})
+	contentRetrievalThrottle := app.Int(cli.IntOpt{
+		Name:   "contentRetrievalThrottle",
+		Value:  0,
+		Desc:   "Delay in milliseconds between content retrieval calls",
+		EnvVar: "CONTENT_RETRIEVAL_THROTTLE",
+	})
 	whitelist := app.String(cli.StringOpt{
 		Name:   "whitelist",
 		Desc:   `The whitelist for incoming notifications - i.e. ^http://.*-transformer-(pr|iw)-uk-.*\.svc\.ft\.com(:\d{2,5})?/content/[\w-]+.*$`,
@@ -198,7 +204,7 @@ func main() {
 		uploader := &content.S3Updater{Client: client, S3WriterBaseURL: *s3WriterBaseURL, S3WriterHealthURL: *s3WriterHealthURL}
 
 		exporter := content.NewExporter(fetcher, uploader)
-		fullExporter := export.NewFullExporter(30, exporter)
+		fullExporter := export.NewFullExporter(20, exporter)
 		locker := export.NewLocker()
 		var kafkaListener *queue.KafkaListener
 		if !(*isIncExportEnabled) {
@@ -219,7 +225,7 @@ func main() {
 					queueHandler:           kafkaListener,
 				})
 
-			serveEndpoints(*appSystemCode, *appName, *port, web.NewRequestHandler(fullExporter, content.NewMongoInquirer(mongo), locker, *isIncExportEnabled), healthService)
+			serveEndpoints(*appSystemCode, *appName, *port, web.NewRequestHandler(fullExporter, content.NewMongoInquirer(mongo), locker, *isIncExportEnabled, *contentRetrievalThrottle), healthService)
 		}()
 
 		waitForSignal()
@@ -261,7 +267,7 @@ func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGro
 }
 
 func serveEndpoints(appSystemCode string, appName string, port string, requestHandler *web.RequestHandler,
-	healthService *healthService) {
+healthService *healthService) {
 
 	serveMux := http.NewServeMux()
 
