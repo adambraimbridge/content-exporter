@@ -6,6 +6,9 @@ import (
 	"github.com/Financial-Times/content-exporter/queue"
 	health "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
+	"net/http"
+	"time"
+	"net"
 )
 
 const healthPath = "/__health"
@@ -26,11 +29,22 @@ type healthConfig struct {
 }
 
 func newHealthService(config *healthConfig) *healthService {
+	tr := &http.Transport{
+		MaxIdleConnsPerHost: 10,
+		Dial: (&net.Dialer{
+			Timeout:   3 * time.Second,
+			KeepAlive: 3 * time.Second,
+		}).Dial,
+	}
+	httpClient := &http.Client{
+		Transport: tr,
+		Timeout:   3 * time.Second,
+	}
 	svc := &healthService{config: config}
 	svc.checks = []health.Check{
 		svc.MongoCheck(),
-		svc.ReadEndpointCheck(),
-		svc.S3WriterCheck(),
+		svc.ReadEndpointCheck(httpClient),
+		svc.S3WriterCheck(httpClient),
 	}
 	if config.queueHandler != nil {
 		svc.checks = append(svc.checks, svc.KafkaCheck())
@@ -49,25 +63,29 @@ func (service *healthService) MongoCheck() health.Check {
 	}
 }
 
-func (service *healthService) ReadEndpointCheck() health.Check {
+func (service *healthService) ReadEndpointCheck(client content.Client) health.Check {
 	return health.Check{
 		Name:             "CheckConnectivityToApiPolicyComponent",
 		BusinessImpact:   "No Business Impact.",
 		PanicGuide:       "https://dewey.ft.com/content-exporter.html",
 		Severity:         2,
 		TechnicalSummary: "The service is unable to connect to Api Policy Component. Neither FULL nor INCREMENTAL or TARGETED export won't work because of this",
-		Checker:          service.config.enrichedContentFetcher.CheckHealth,
+		Checker: func() (string, error) {
+			return service.config.enrichedContentFetcher.CheckHealth(client)
+		},
 	}
 }
 
-func (service *healthService) S3WriterCheck() health.Check {
+func (service *healthService) S3WriterCheck(client content.Client) health.Check {
 	return health.Check{
 		Name:             "CheckConnectivityToContentRWS3",
 		BusinessImpact:   "No Business Impact.",
 		PanicGuide:       "https://dewey.ft.com/content-exporter.html",
 		Severity:         2,
 		TechnicalSummary: "The service is unable to connect to Content-RW-S3. Neither FULL nor INCREMENTAL or TARGETED export won't work because of this",
-		Checker:          service.config.s3Uploader.CheckHealth,
+		Checker: func() (string, error) {
+			return service.config.s3Uploader.CheckHealth(client)
+		},
 	}
 }
 

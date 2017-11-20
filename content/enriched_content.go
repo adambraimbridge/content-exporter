@@ -56,7 +56,7 @@ func (e *EnrichedContentFetcher) GetContent(uuid, tid string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-func (e *EnrichedContentFetcher) CheckHealth() (string, error) {
+func (e *EnrichedContentFetcher) CheckHealth(client Client) (string, error) {
 	req, err := http.NewRequest("GET", e.EnrichedContentHealthURL, nil)
 	if err != nil {
 		return "Error in building request to check if the enrichedContent fetcher is good to go", err
@@ -65,7 +65,7 @@ func (e *EnrichedContentFetcher) CheckHealth() (string, error) {
 	if e.Authorization != "" {
 		req.Header.Add("Authorization", e.Authorization)
 	}
-	resp, err := e.Client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "Error in getting request to check if the enrichedContent fetcher is good to go", err
 	}

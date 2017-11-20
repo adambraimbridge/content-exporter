@@ -114,7 +114,7 @@ func (db *MongoDB) CheckHealth() (string, error) {
 		return "", err
 	}
 
-	defer func() { go tx.Close() }()
+	defer tx.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()

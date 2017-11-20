@@ -68,13 +68,13 @@ func (u *S3Updater) Upload(content []byte, tid, uuid, date string) error {
 	return nil
 }
 
-func (u *S3Updater) CheckHealth() (string, error) {
+func (u *S3Updater) CheckHealth(client Client) (string, error) {
 	req, err := http.NewRequest("GET", u.S3WriterHealthURL, nil)
 	if err != nil {
 		return "Error in building request to check if the S3 Writer is good to go", err
 	}
 
-	resp, err := u.Client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return "Error in getting request to check if S3 Writer is good to go.", err
 	}

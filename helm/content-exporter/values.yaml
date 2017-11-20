@@ -9,6 +9,8 @@ image:
   repository: coco/content-exporter
   pullPolicy: IfNotPresent
 resources:
+  requests:
+    memory: 40Mi
   limits:
     memory: 256Mi
 env:
@@ -16,8 +18,8 @@ env:
     base-url: "api-policy-component:8080"
     health-url: "api-policy-component:8080/__gtg"
   s3-writer:
-    base-url: "content-rw-s3:8080"
-    health-url: "content-rw-s3:8080/__gtg"
+    base-url: "upp-exports-rw-s3:8080"
+    health-url: "upp-exports-rw-s3:8080/__gtg"
   kafka:
     group-id: "k8s-content-exporter"
     topic: "PostPublicationEvents"
