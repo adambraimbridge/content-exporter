@@ -16,10 +16,8 @@ resources:
 env:
   enrichedContent:
     baseUrl: "http://api-policy-component:8080"
-    healthUrl: "http://api-policy-component:8080/__gtg"
   s3Writer:
     baseUrl: "http://upp-exports-rw-s3:8080"
-    healthUrl: "http://upp-exports-rw-s3:8080/__gtg"
   kafka:
     groupId: "k8s-content-exporter"
     topic: "PostPublicationEvents"

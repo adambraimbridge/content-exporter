@@ -20,7 +20,7 @@ spec:
     spec:
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
+          preferredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
               - key: app
@@ -36,11 +36,11 @@ spec:
         - name: ENRICHED_CONTENT_BASE_URL
           value: "{{ .Values.env.enrichedContent.baseUrl }}"
         - name: ENRICHED_CONTENT_HEALTH_URL
-          value: "{{ .Values.env.enrichedContent.baseUrl }}"
+          value: "{{ .Values.env.enrichedContent.baseUrl }}/__gtg"
         - name: S3_WRITER_BASE_URL
           value: "{{ .Values.env.s3Writer.baseUrl }}"
         - name: S3_WRITER_HEALTH_URL
-          value: "{{ .Values.env.s3Writer.healthUrl }}"
+          value: "{{ .Values.env.s3Writer.baseUrl }}/__gtg"
         - name: MONGO_CONNECTION
           valueFrom:
             configMapKeyRef:
