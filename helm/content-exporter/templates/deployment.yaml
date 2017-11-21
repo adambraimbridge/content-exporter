@@ -62,6 +62,8 @@ spec:
           value: "{{ .Values.env.kafka.topic }}"
         - name: WHITELIST
           value: {{ .Values.env.whitelist }}
+        - name: CONTENT_RETRIEVAL_THROTTLE
+          value: "{{ .Values.env.contentRetrievalThrottle }}"
         ports:
         - containerPort: 8080
         livenessProbe:
