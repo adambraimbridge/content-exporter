@@ -16,6 +16,7 @@ const healthPath = "/__health"
 type healthService struct {
 	config *healthConfig
 	checks []health.Check
+	client *http.Client
 }
 
 type healthConfig struct {
@@ -40,16 +41,16 @@ func newHealthService(config *healthConfig) *healthService {
 		Transport: tr,
 		Timeout:   3 * time.Second,
 	}
-	svc := &healthService{config: config}
-	svc.checks = []health.Check{
-		svc.MongoCheck(),
-		svc.ReadEndpointCheck(httpClient),
-		svc.S3WriterCheck(httpClient),
+	service := &healthService{config: config, client: httpClient}
+	service.checks = []health.Check{
+		service.MongoCheck(),
+		service.ReadEndpointCheck(),
+		service.S3WriterCheck(),
 	}
 	if config.queueHandler != nil {
-		svc.checks = append(svc.checks, svc.KafkaCheck())
+		service.checks = append(service.checks, service.KafkaCheck())
 	}
-	return svc
+	return service
 }
 
 func (service *healthService) MongoCheck() health.Check {
@@ -63,7 +64,7 @@ func (service *healthService) MongoCheck() health.Check {
 	}
 }
 
-func (service *healthService) ReadEndpointCheck(client content.Client) health.Check {
+func (service *healthService) ReadEndpointCheck() health.Check {
 	return health.Check{
 		Name:             "CheckConnectivityToApiPolicyComponent",
 		BusinessImpact:   "No Business Impact.",
@@ -71,12 +72,12 @@ func (service *healthService) ReadEndpointCheck(client content.Client) health.Ch
 		Severity:         2,
 		TechnicalSummary: "The service is unable to connect to Api Policy Component. Neither FULL nor INCREMENTAL or TARGETED export won't work because of this",
 		Checker: func() (string, error) {
-			return service.config.enrichedContentFetcher.CheckHealth(client)
+			return service.config.enrichedContentFetcher.CheckHealth(service.client)
 		},
 	}
 }
 
-func (service *healthService) S3WriterCheck(client content.Client) health.Check {
+func (service *healthService) S3WriterCheck() health.Check {
 	return health.Check{
 		Name:             "CheckConnectivityToContentRWS3",
 		BusinessImpact:   "No Business Impact.",
@@ -84,7 +85,7 @@ func (service *healthService) S3WriterCheck(client content.Client) health.Check 
 		Severity:         2,
 		TechnicalSummary: "The service is unable to connect to Content-RW-S3. Neither FULL nor INCREMENTAL or TARGETED export won't work because of this",
 		Checker: func() (string, error) {
-			return service.config.s3Uploader.CheckHealth(client)
+			return service.config.s3Uploader.CheckHealth(service.client)
 		},
 	}
 }
@@ -100,11 +101,26 @@ func (service *healthService) KafkaCheck() health.Check {
 	}
 }
 
-func (service *healthService) gtgCheck() gtg.Status {
-	for _, check := range service.checks {
-		if _, err := check.Checker(); err != nil {
-			return gtg.Status{GoodToGo: false, Message: err.Error()}
-		}
+func (service *healthService) GTG() gtg.Status {
+	mongoCheck := func() gtg.Status {
+		return service.gtgCheck(service.MongoCheck())
 	}
-	return gtg.Status{GoodToGo: true}
+	readApiCheck := func() gtg.Status {
+		return service.gtgCheck(service.ReadEndpointCheck())
+	}
+	s3WriterCheck := func() gtg.Status {
+		return service.gtgCheck(service.S3WriterCheck())
+	}
+	return gtg.FailFastParallelCheck([]gtg.StatusChecker{
+		mongoCheck,
+		readApiCheck,
+		s3WriterCheck,
+	})()
+}
+
+func (service *healthService) gtgCheck(check health.Check) gtg.Status {
+	if _, err := check.Checker(); err != nil {
+		return gtg.Status{GoodToGo: false, Message: err.Error()}
+	}
+	return gtg.Status{GoodToGo: true, }
 }
