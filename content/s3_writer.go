@@ -3,8 +3,8 @@ package content
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"io/ioutil"
+	"net/http"
 )
 
 const s3WriterPath = "/content/"
@@ -21,7 +21,7 @@ type S3Updater struct {
 }
 
 func (u *S3Updater) Delete(uuid, tid string) error {
-	req, err := http.NewRequest("DELETE", u.S3WriterBaseURL + s3WriterPath + uuid, nil)
+	req, err := http.NewRequest("DELETE", u.S3WriterBaseURL+s3WriterPath+uuid, nil)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (u *S3Updater) Upload(content []byte, tid, uuid, date string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("PUT", u.S3WriterBaseURL + s3WriterPath + uuid + "?date=" + date, buf)
+	req, err := http.NewRequest("PUT", u.S3WriterBaseURL+s3WriterPath+uuid+"?date="+date, buf)
 	if err != nil {
 		return err
 	}

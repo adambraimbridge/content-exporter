@@ -2,11 +2,12 @@ package queue
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/export"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 type EventType string

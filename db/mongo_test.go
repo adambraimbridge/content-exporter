@@ -2,13 +2,14 @@ package db
 
 import (
 	"context"
+	"os"
+	"strings"
+	"testing"
+
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/mgo.v2/bson"
-	"os"
-	"strings"
-	"testing"
 )
 
 func startMongo(t *testing.T) Service {

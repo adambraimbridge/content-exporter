@@ -2,10 +2,11 @@ package export
 
 import (
 	"fmt"
-	"github.com/Financial-Times/content-exporter/content"
-	log "github.com/sirupsen/logrus"
 	"sync"
 	"time"
+
+	"github.com/Financial-Times/content-exporter/content"
+	log "github.com/sirupsen/logrus"
 )
 
 type Service struct {
@@ -19,7 +20,7 @@ type State string
 
 const (
 	STARTING State = "Starting"
-	RUNNING State = "Running"
+	RUNNING  State = "Running"
 	FINISHED State = "Finished"
 )
 

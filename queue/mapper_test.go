@@ -2,13 +2,14 @@ package queue
 
 import (
 	"encoding/json"
+	"regexp"
+	"testing"
+
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"regexp"
-	"testing"
 )
 
 func NewMessageMapper() MessageMapper {

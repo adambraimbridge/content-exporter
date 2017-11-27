@@ -2,6 +2,7 @@ package content
 
 import (
 	"fmt"
+
 	"github.com/Financial-Times/content-exporter/db"
 	log "github.com/sirupsen/logrus"
 )

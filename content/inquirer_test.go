@@ -2,12 +2,13 @@ package content
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/Financial-Times/content-exporter/db"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"testing"
-	"time"
 )
 
 type mockDbService struct {

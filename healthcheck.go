@@ -1,14 +1,15 @@
 package main
 
 import (
+	"net"
+	"net/http"
+	"time"
+
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/db"
 	"github.com/Financial-Times/content-exporter/queue"
 	health "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
-	"net/http"
-	"time"
-	"net"
 )
 
 const healthPath = "/__health"
@@ -122,5 +123,5 @@ func (service *healthService) gtgCheck(check health.Check) gtg.Status {
 	if _, err := check.Checker(); err != nil {
 		return gtg.Status{GoodToGo: false, Message: err.Error()}
 	}
-	return gtg.Status{GoodToGo: true, }
+	return gtg.Status{GoodToGo: true}
 }
