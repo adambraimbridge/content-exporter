@@ -169,7 +169,7 @@ func TestEnrichedContentFetcherCheckHealth(t *testing.T) {
 
 	fetcher := NewEnrichedContentFetcher(server.URL, "", "")
 
-	resp, err := fetcher.(*EnrichedContentFetcher).CheckHealth()
+	resp, err := fetcher.(*EnrichedContentFetcher).CheckHealth(&http.Client{})
 	assert.NoError(t, err)
 	assert.Equal(t, "EnrichedContent fetcher is good to go.", resp)
 	mockServer.AssertExpectations(t)
@@ -182,7 +182,7 @@ func TestEnrichedContentFetcherCheckHealthError(t *testing.T) {
 
 	fetcher := NewEnrichedContentFetcher(server.URL, "", "")
 
-	resp, err := fetcher.(*EnrichedContentFetcher).CheckHealth()
+	resp, err := fetcher.(*EnrichedContentFetcher).CheckHealth(&http.Client{})
 	assert.Error(t, err)
 	assert.Equal(t, "EnrichedContent fetcher is not good to go.", resp)
 	mockServer.AssertExpectations(t)
@@ -190,11 +190,10 @@ func TestEnrichedContentFetcherCheckHealthError(t *testing.T) {
 
 func TestEnrichedContentFetcherCheckHealthErrorOnNewRequest(t *testing.T) {
 	fetcher := &EnrichedContentFetcher{
-		Client: &http.Client{},
 		EnrichedContentHealthURL: "://",
 	}
 
-	resp, err := fetcher.CheckHealth()
+	resp, err := fetcher.CheckHealth(&http.Client{})
 
 	assert.Error(t, err)
 	assert.Equal(t, "parse ://: missing protocol scheme", err.Error())
@@ -206,12 +205,11 @@ func TestEnrichedContentFetcherCheckHealthErrorOnRequestDo(t *testing.T) {
 	mockClient.On("Do", mock.AnythingOfType("*http.Request")).Return(&http.Response{}, errors.New("Http Client err"))
 
 	fetcher := &EnrichedContentFetcher{
-		Client: mockClient,
 		EnrichedContentHealthURL: "http://server",
 		Authorization:            "some-auth",
 	}
 
-	resp, err := fetcher.CheckHealth()
+	resp, err := fetcher.CheckHealth(mockClient)
 	assert.Error(t, err)
 	assert.Equal(t, "Http Client err", err.Error())
 	assert.Equal(t, "Error in getting request to check if the enrichedContent fetcher is good to go", resp)

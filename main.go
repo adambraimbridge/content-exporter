@@ -1,9 +1,10 @@
 package main
 
 import (
+	standardlog "log"
+
 	"github.com/jawher/mow.cli"
 	log "github.com/sirupsen/logrus"
-	standardlog "log"
 
 	"net/http"
 	"os"
@@ -17,6 +18,12 @@ import (
 
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/db"
 	"github.com/Financial-Times/content-exporter/export"
@@ -27,11 +34,6 @@ import (
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/Shopify/sarama"
 	"github.com/sethgrid/pester"
-	"io/ioutil"
-	"net"
-	"regexp"
-	"strings"
-	"time"
 )
 
 const appDescription = "Exports content from DB and sends to S3"
@@ -267,13 +269,13 @@ func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGro
 }
 
 func serveEndpoints(appSystemCode string, appName string, port string, requestHandler *web.RequestHandler,
-healthService *healthService) {
+	healthService *healthService) {
 
 	serveMux := http.NewServeMux()
 
 	hc := health.HealthCheck{SystemCode: appSystemCode, Name: appName, Description: appDescription, Checks: healthService.checks}
 	serveMux.HandleFunc(healthPath, health.Handler(hc))
-	serveMux.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.gtgCheck))
+	serveMux.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
 	serveMux.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 
 	servicesRouter := mux.NewRouter()

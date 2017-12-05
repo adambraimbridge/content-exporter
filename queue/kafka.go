@@ -2,11 +2,12 @@ package queue
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/Financial-Times/content-exporter/export"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	log "github.com/sirupsen/logrus"
-	"sync"
-	"time"
 )
 
 type MessageHandler interface {

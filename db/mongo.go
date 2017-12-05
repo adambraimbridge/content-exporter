@@ -2,11 +2,12 @@ package db
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"sync"
-	"time"
 )
 
 var expectedConnections = 1
@@ -114,7 +115,7 @@ func (db *MongoDB) CheckHealth() (string, error) {
 		return "", err
 	}
 
-	defer func() { go tx.Close() }()
+	defer tx.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()

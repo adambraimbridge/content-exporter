@@ -3,16 +3,17 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/export"
 	"github.com/Financial-Times/transactionid-utils-go"
 	"github.com/gorilla/mux"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
-	"net/http"
-	"strings"
-	"time"
 )
 
 type RequestHandler struct {
@@ -20,17 +21,16 @@ type RequestHandler struct {
 	Inquirer                 content.Inquirer
 	ContentRetrievalThrottle int
 	*export.Locker
-	IsIncExportEnabled       bool
+	IsIncExportEnabled bool
 }
 
 func NewRequestHandler(fullExporter *export.Service, inquirer content.Inquirer, locker *export.Locker, isIncExportEnabled bool, contentRetrievalThrottle int) *RequestHandler {
 	return &RequestHandler{
-		FullExporter:       fullExporter,
-		Inquirer:           inquirer,
-		Locker:             locker,
-		IsIncExportEnabled: isIncExportEnabled,
-		ContentRetrievalThrottle:contentRetrievalThrottle,
-
+		FullExporter:             fullExporter,
+		Inquirer:                 inquirer,
+		Locker:                   locker,
+		IsIncExportEnabled:       isIncExportEnabled,
+		ContentRetrievalThrottle: contentRetrievalThrottle,
 	}
 }
 
@@ -69,7 +69,7 @@ func (handler *RequestHandler) Export(writer http.ResponseWriter, request *http.
 	candidates := getCandidateUUIDs(request)
 
 	jobID := uuid.New()
-	job := &export.Job{ID: jobID, NrWorker: handler.FullExporter.NrOfConcurrentWorkers, Status: export.STARTING, ContentRetrievalThrottle:handler.ContentRetrievalThrottle}
+	job := &export.Job{ID: jobID, NrWorker: handler.FullExporter.NrOfConcurrentWorkers, Status: export.STARTING, ContentRetrievalThrottle: handler.ContentRetrievalThrottle}
 	handler.FullExporter.AddJob(job)
 
 	go func() {

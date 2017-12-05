@@ -3,12 +3,13 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
+
 	"github.com/Financial-Times/content-exporter/content"
 	"github.com/Financial-Times/content-exporter/export"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	log "github.com/sirupsen/logrus"
-	"regexp"
-	"strings"
 )
 
 // UUIDRegexp enables to check if a string matches a UUID
