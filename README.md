@@ -17,18 +17,18 @@ An `INCREMENTAL export` is started at the startup and the service starts consumi
 
 Download the source code, dependencies and test dependencies:
 
-        go get -u github.com/kardianos/govendor
+        curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh # Install dep
         go get -u github.com/Financial-Times/content-exporter
         cd $GOPATH/src/github.com/Financial-Times/content-exporter
-        govendor sync
-        go build .
+        dep ensure -vendor-only
+        go build -v .
 
 ## Running locally
 
 1. Run the tests and install the binary:
 
-        govendor sync
-        govendor test -v -race
+        dep ensure -vendor-only
+        go test -v -race ./...
         go install
 
 2. Run the binary (using the `help` flag to see the available optional arguments):
