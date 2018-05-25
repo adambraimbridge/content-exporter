@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func NewMessageMapper() MessageMapper {
-	return NewKafkaMessageMapper(regexp.MustCompile("http://methode-article-mapper/content/.*"))
+func NewComplexMessageMapper() MessageMapper {
+	return NewKafkaMessageMapper(regexp.MustCompile("^http://(methode|wordpress|upp)-(article|content)-(transformer|mapper|validator)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$"))
 }
 
 func testMapDeleteMessageSuccessfully(t *testing.T, ev event, testUUID string) {
-	messageMapper := NewMessageMapper()
+	messageMapper := NewComplexMessageMapper()
 
 	body, err := json.Marshal(ev)
 	require.NoError(t, err)
@@ -32,28 +32,28 @@ func testMapDeleteMessageSuccessfully(t *testing.T, ev event, testUUID string) {
 func TestKafkaMessageMapperMapDeleteMessageSuccessfullyWithoutPayload(t *testing.T) {
 	testUUID := uuid.New()
 	testMapDeleteMessageSuccessfully(t, event{
-		ContentURI: "http://methode-article-mapper/content/" + testUUID}, testUUID)
+		ContentURI: "http://methode-article-mapper.svc.ft.com/content/" + testUUID}, testUUID)
 }
 
 func TestKafkaMessageMapperMapDeleteMessageSuccessfullyWithEmptyPayload(t *testing.T) {
 	testUUID := uuid.New()
 	testMapDeleteMessageSuccessfully(t, event{
-		ContentURI: "http://methode-article-mapper/content/" + testUUID,
+		ContentURI: "http://methode-article-mapper.svc.ft.com/content/" + testUUID,
 		Payload:    map[string]interface{}{}}, testUUID)
 }
 
 func TestKafkaMessageMapperMapDeleteMessageSuccessfullyWithEmptyStringPayload(t *testing.T) {
 	testUUID := uuid.New()
 	testMapDeleteMessageSuccessfully(t, event{
-		ContentURI: "http://methode-article-mapper/content/" + testUUID,
+		ContentURI: "http://methode-article-mapper.svc.ft.com/content/" + testUUID,
 		Payload:    ""}, testUUID)
 }
 
 func TestKafkaMessageMapperMapUpdateMessageSuccessfully(t *testing.T) {
-	messageMapper := NewMessageMapper()
+	messageMapper := NewComplexMessageMapper()
 	testUUID := uuid.New()
 	body, err := json.Marshal(event{
-		ContentURI: "http://methode-article-mapper/content/" + testUUID,
+		ContentURI: "http://methode-article-mapper.svc.ft.com/content/" + testUUID,
 		Payload:    map[string]interface{}{"title": "This is a title", "type": "Article"}})
 	require.NoError(t, err)
 
@@ -66,21 +66,25 @@ func TestKafkaMessageMapperMapUpdateMessageSuccessfully(t *testing.T) {
 	assert.Equal(t, content.DefaultDate, n.Stub.Date)
 }
 
-func TestKafkaMessageMapperMapUpdateMessageNoUUIDError(t *testing.T) {
-	messageMapper := NewMessageMapper()
+func TestKafkaMessageMapperMapUpdateMessageSuccessfullyForSpark(t *testing.T) {
+	messageMapper := NewComplexMessageMapper()
+	testUUID := uuid.New()
 	body, err := json.Marshal(event{
-		ContentURI: "http://methode-article-mapper/content/",
+		ContentURI: "http://upp-content-validator.svc.ft.com/content/" + testUUID,
 		Payload:    map[string]interface{}{"title": "This is a title", "type": "Article"}})
 	require.NoError(t, err)
 
 	n, err := messageMapper.MapNotification(kafka.FTMessage{Body: string(body), Headers: map[string]string{"X-Request-Id": "tid_1234"}})
 
-	assert.Error(t, err)
-	assert.Nil(t, n)
+	assert.NoError(t, err)
+	assert.Equal(t, UPDATE, n.EvType)
+	assert.Equal(t, "tid_1234", n.Tid)
+	assert.Equal(t, testUUID, n.Stub.Uuid)
+	assert.Equal(t, content.DefaultDate, n.Stub.Date)
 }
 
 func TestKafkaMessageMapperMapNotificationNotInWhiteListError(t *testing.T) {
-	messageMapper := NewMessageMapper()
+	messageMapper := NewComplexMessageMapper()
 	body, err := json.Marshal(event{
 		ContentURI: "http://wordpress-article-mapper/content/",
 		Payload:    map[string]interface{}{"title": "This is a title", "type": "Article"}})
@@ -93,9 +97,9 @@ func TestKafkaMessageMapperMapNotificationNotInWhiteListError(t *testing.T) {
 }
 
 func TestKafkaMessageMapperMapNotificationSyntheticError(t *testing.T) {
-	messageMapper := NewMessageMapper()
+	messageMapper := NewComplexMessageMapper()
 	body, err := json.Marshal(event{
-		ContentURI: "http://methode-article-mapper/content/",
+		ContentURI: "http://methode-article-mapper.svc.ft.com/content/",
 		Payload:    map[string]interface{}{"title": "This is a title", "type": "Article"}})
 	require.NoError(t, err)
 
@@ -106,7 +110,7 @@ func TestKafkaMessageMapperMapNotificationSyntheticError(t *testing.T) {
 }
 
 func TestKafkaMessageMapperMapNotificationMessageParseError(t *testing.T) {
-	messageMapper := NewMessageMapper()
+	messageMapper := NewComplexMessageMapper()
 
 	n, err := messageMapper.MapNotification(kafka.FTMessage{Body: "random-text", Headers: map[string]string{"X-Request-Id": "SYNTH_tid_1234"}})
 
