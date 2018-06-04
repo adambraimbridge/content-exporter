@@ -114,7 +114,7 @@ func (h *KafkaMessageMapper) MapNotification(msg kafka.FTMessage) (*Notification
 	}
 
 	if n.Stub.CanBeDistributed != nil && *n.Stub.CanBeDistributed != canBeDistributedYes {
-		log.WithField("transaction_id", tid).WithField("msg", msg.Body).WithError(err).Warn("Skipping event: Content cannot be distributed.")
+		log.WithField("transaction_id", tid).WithField("uuid", n.Stub.Uuid).Warn("Skipping event: Content cannot be distributed.")
 		return nil, nil
 	}
 
