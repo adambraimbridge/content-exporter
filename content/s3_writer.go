@@ -3,11 +3,14 @@ package content
 import (
 	"bytes"
 	"fmt"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
 )
 
 const s3WriterPath = "/content/"
+
+var ErrNotFound = errors.New("Content RW S3 returned HTTP 404 with message")
 
 type Updater interface {
 	Upload(content []byte, tid, uuid, date string) error
@@ -33,7 +36,10 @@ func (u *S3Updater) Delete(uuid, tid string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		if resp.StatusCode == http.StatusNotFound {
+			return ErrNotFound
+		}
 		body, _ := ioutil.ReadAll(resp.Body)
 		return fmt.Errorf("Content RW S3 returned HTTP %v with message: %s", resp.StatusCode, string(body))
 	}
