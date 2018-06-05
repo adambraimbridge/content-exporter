@@ -8,7 +8,8 @@ import (
 const DefaultDate = "0000-00-00"
 
 type Stub struct {
-	Uuid, Date string
+	Uuid, Date       string
+	CanBeDistributed *string
 }
 
 type Exporter struct {

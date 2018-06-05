@@ -12,6 +12,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const canBeDistributedYes = "yes"
+
 // UUIDRegexp enables to check if a string matches a UUID
 var UUIDRegexp = regexp.MustCompile("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}")
 
@@ -67,10 +69,18 @@ func (e event) mapNotification(tid string) (*Notification, error) {
 		}
 	}
 
+	var canBeDistributed *string
+	canBeDistributedValue, found := payload["canBeDistributed"]
+	if found {
+		canBeDistributed = new(string)
+		*canBeDistributed = canBeDistributedValue.(string)
+	}
+
 	return &Notification{
 		Stub: content.Stub{
-			Uuid: UUID,
-			Date: content.GetDateOrDefault(payload),
+			Uuid:             UUID,
+			Date:             content.GetDateOrDefault(payload),
+			CanBeDistributed: canBeDistributed,
 		},
 		EvType:     evType,
 		Terminator: export.NewTerminator(),
@@ -101,6 +111,11 @@ func (h *KafkaMessageMapper) MapNotification(msg kafka.FTMessage) (*Notification
 	if err != nil {
 		log.WithField("transaction_id", tid).WithField("msg", msg.Body).WithError(err).Warn("Skipping event: Cannot build notification for message.")
 		return nil, err
+	}
+
+	if n.Stub.CanBeDistributed != nil && *n.Stub.CanBeDistributed != canBeDistributedYes {
+		log.WithField("transaction_id", tid).WithField("uuid", n.Stub.Uuid).Warn("Skipping event: Content cannot be distributed.")
+		return nil, nil
 	}
 
 	return n, nil

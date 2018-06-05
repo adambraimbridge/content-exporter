@@ -27,6 +27,7 @@ func testMapDeleteMessageSuccessfully(t *testing.T, ev event, testUUID string) {
 	assert.Equal(t, "tid_1234", n.Tid)
 	assert.Equal(t, testUUID, n.Stub.Uuid)
 	assert.Equal(t, content.DefaultDate, n.Stub.Date)
+	assert.Nil(t, n.Stub.CanBeDistributed)
 }
 
 func TestKafkaMessageMapperMapDeleteMessageSuccessfullyWithoutPayload(t *testing.T) {
@@ -64,6 +65,41 @@ func TestKafkaMessageMapperMapUpdateMessageSuccessfully(t *testing.T) {
 	assert.Equal(t, "tid_1234", n.Tid)
 	assert.Equal(t, testUUID, n.Stub.Uuid)
 	assert.Equal(t, content.DefaultDate, n.Stub.Date)
+	assert.Nil(t, n.Stub.CanBeDistributed)
+}
+
+func TestKafkaMessageMapperMapUpdateCanBeDistributedYes(t *testing.T) {
+	messageMapper := NewComplexMessageMapper()
+	testUUID := uuid.New()
+	body, err := json.Marshal(event{
+		ContentURI: "http://methode-article-mapper.svc.ft.com/content/" + testUUID,
+		Payload:    map[string]interface{}{"title": "This is a title", "type": "Article", "canBeDistributed": "yes"}})
+	require.NoError(t, err)
+
+	n, err := messageMapper.MapNotification(kafka.FTMessage{Body: string(body), Headers: map[string]string{"X-Request-Id": "tid_1234"}})
+
+	assert.NoError(t, err)
+	assert.Equal(t, UPDATE, n.EvType)
+	assert.Equal(t, "tid_1234", n.Tid)
+	assert.Equal(t, testUUID, n.Stub.Uuid)
+	assert.Equal(t, content.DefaultDate, n.Stub.Date)
+	expectedCanBeDistributed := new(string)
+	*expectedCanBeDistributed = canBeDistributedYes
+	assert.Equal(t, expectedCanBeDistributed, n.Stub.CanBeDistributed)
+}
+
+func TestKafkaMessageMapperMapUpdateCanBeDistributedVerify(t *testing.T) {
+	messageMapper := NewComplexMessageMapper()
+	testUUID := uuid.New()
+	body, err := json.Marshal(event{
+		ContentURI: "http://methode-article-mapper.svc.ft.com/content/" + testUUID,
+		Payload:    map[string]interface{}{"title": "This is a title", "type": "Article", "canBeDistributed": "verify"}})
+	require.NoError(t, err)
+
+	n, err := messageMapper.MapNotification(kafka.FTMessage{Body: string(body), Headers: map[string]string{"X-Request-Id": "tid_1234"}})
+
+	assert.NoError(t, err)
+	assert.Nil(t, n)
 }
 
 func TestKafkaMessageMapperMapUpdateMessageSuccessfullyForSpark(t *testing.T) {
@@ -81,6 +117,7 @@ func TestKafkaMessageMapperMapUpdateMessageSuccessfullyForSpark(t *testing.T) {
 	assert.Equal(t, "tid_1234", n.Tid)
 	assert.Equal(t, testUUID, n.Stub.Uuid)
 	assert.Equal(t, content.DefaultDate, n.Stub.Date)
+	assert.Nil(t, n.Stub.CanBeDistributed)
 }
 
 func TestKafkaMessageMapperMapNotificationNotInWhiteListError(t *testing.T) {

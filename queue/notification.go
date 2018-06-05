@@ -55,6 +55,10 @@ func (h *KafkaContentNotificationHandler) HandleContentNotification(n *Notificat
 	} else if n.EvType == DELETE {
 		logEntry.Info("DELETE event received")
 		if err := h.ContentExporter.Updater.Delete(n.Stub.Uuid, n.Tid); err != nil {
+			if err == content.ErrNotFound {
+				logEntry.Warnf("DELETE WARN: %v", err)
+				return nil
+			}
 			return fmt.Errorf("DELETE ERROR: %v", err)
 		}
 	}
