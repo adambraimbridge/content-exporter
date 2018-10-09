@@ -13,7 +13,7 @@ import (
 )
 
 func NewComplexMessageMapper() MessageMapper {
-	return NewKafkaMessageMapper(regexp.MustCompile("^http://(methode|wordpress|upp)-(article|content)-(transformer|mapper|validator)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$"))
+	return NewKafkaMessageMapper(regexp.MustCompile("^http://(methode|wordpress|upp)-(article|content)-(transformer|mapper|validator)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content|audio)/[\\w-]+.*$"))
 }
 
 func testMapDeleteMessageSuccessfully(t *testing.T, ev event, testUUID string) {
@@ -34,6 +34,12 @@ func TestKafkaMessageMapperMapDeleteMessageSuccessfullyWithoutPayload(t *testing
 	testUUID := uuid.New()
 	testMapDeleteMessageSuccessfully(t, event{
 		ContentURI: "http://methode-article-mapper.svc.ft.com/content/" + testUUID}, testUUID)
+}
+
+func TestKafkaMessageMapperMapDeleteAudioMessageSuccessfullyWithoutPayload(t *testing.T) {
+	testUUID := uuid.New()
+	testMapDeleteMessageSuccessfully(t, event{
+		ContentURI: "http://upp-content-validator.svc.ft.com/audio/" + testUUID}, testUUID)
 }
 
 func TestKafkaMessageMapperMapDeleteMessageSuccessfullyWithEmptyPayload(t *testing.T) {

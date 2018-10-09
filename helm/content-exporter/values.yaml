@@ -21,5 +21,5 @@ env:
   kafka:
     groupId: "k8s-content-exporter"
     topic: "PostPublicationEvents"
-  whitelist: "^http://(methode|wordpress|upp)-(article|content)-(transformer|mapper|validator)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content)/[\\w-]+.*$"
+  whitelist: "^http://(methode|wordpress|upp)-(article|content)-(transformer|mapper|validator)(-pr|-iw)?(-uk-.*)?\\.svc\\.ft\\.com(:\\d{2,5})?/(content|audio)/[\\w-]+.*$"
   contentRetrievalThrottle: 500
