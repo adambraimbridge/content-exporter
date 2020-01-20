@@ -58,7 +58,7 @@ func (service *healthService) MongoCheck() health.Check {
 	return health.Check{
 		Name:             "CheckConnectivityToMongoDatabase",
 		BusinessImpact:   "No Business Impact.",
-		PanicGuide:       "https://dewey.ft.com/content-exporter.html",
+		PanicGuide:       "https://runbooks.in.ft.com/content-exporter",
 		Severity:         2,
 		TechnicalSummary: "The service is unable to connect to MongoDB. FULL or TARGETED export won't work because of this",
 		Checker:          service.config.db.CheckHealth,
@@ -69,7 +69,7 @@ func (service *healthService) ReadEndpointCheck() health.Check {
 	return health.Check{
 		Name:             "CheckConnectivityToApiPolicyComponent",
 		BusinessImpact:   "No Business Impact.",
-		PanicGuide:       "https://dewey.ft.com/content-exporter.html",
+		PanicGuide:       "https://runbooks.in.ft.com/content-exporter",
 		Severity:         2,
 		TechnicalSummary: "The service is unable to connect to Api Policy Component. Neither FULL nor INCREMENTAL or TARGETED export won't work because of this",
 		Checker: func() (string, error) {
@@ -82,7 +82,7 @@ func (service *healthService) S3WriterCheck() health.Check {
 	return health.Check{
 		Name:             "CheckConnectivityToContentRWS3",
 		BusinessImpact:   "No Business Impact.",
-		PanicGuide:       "https://dewey.ft.com/content-exporter.html",
+		PanicGuide:       "https://runbooks.in.ft.com/content-exporter",
 		Severity:         2,
 		TechnicalSummary: "The service is unable to connect to Content-RW-S3. Neither FULL nor INCREMENTAL or TARGETED export won't work because of this",
 		Checker: func() (string, error) {
@@ -95,7 +95,7 @@ func (service *healthService) KafkaCheck() health.Check {
 	return health.Check{
 		Name:             "CheckConnectivityToKafka",
 		BusinessImpact:   "No Business Impact.",
-		PanicGuide:       "https://dewey.ft.com/content-exporter.html",
+		PanicGuide:       "https://runbooks.in.ft.com/content-exporter",
 		Severity:         2,
 		TechnicalSummary: "The service is unable to connect to Kafka. INCREMENTAL export won't work because of this",
 		Checker:          service.config.queueHandler.CheckHealth,
