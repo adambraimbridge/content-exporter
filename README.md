@@ -17,17 +17,14 @@ An `INCREMENTAL export` is started at the startup and the service starts consumi
 
 Download the source code, dependencies and test dependencies:
 
-        curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh # Install dep
-        go get -u github.com/Financial-Times/content-exporter
+        go get github.com/Financial-Times/content-exporter
         cd $GOPATH/src/github.com/Financial-Times/content-exporter
-        dep ensure -vendor-only
-        go build -v .
+        go build
 
 ## Running locally
 
 1. Run the tests and install the binary:
 
-        dep ensure -vendor-only
         go test -v -race ./...
         go install
 
