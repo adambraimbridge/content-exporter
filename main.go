@@ -1,27 +1,18 @@
 package main
 
 import (
-	standardlog "log"
-
-	"github.com/jawher/mow.cli"
-	log "github.com/sirupsen/logrus"
-
-	"net/http"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
-
-	"github.com/Financial-Times/http-handlers-go/httphandlers"
-	"github.com/gorilla/mux"
-	"github.com/rcrowley/go-metrics"
-
 	"errors"
 	"fmt"
 	"io/ioutil"
+	standardlog "log"
 	"net"
+	"net/http"
+	"os"
+	"os/signal"
 	"regexp"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/Financial-Times/content-exporter/content"
@@ -30,10 +21,16 @@ import (
 	"github.com/Financial-Times/content-exporter/queue"
 	"github.com/Financial-Times/content-exporter/web"
 	health "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	"github.com/Financial-Times/kafka-client-go/kafka"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
+
 	"github.com/Shopify/sarama"
+	"github.com/gorilla/mux"
+	cli "github.com/jawher/mow.cli"
+	metrics "github.com/rcrowley/go-metrics"
 	"github.com/sethgrid/pester"
+	log "github.com/sirupsen/logrus"
 )
 
 const appDescription = "Exports content from DB and sends to S3"
@@ -218,10 +215,10 @@ func main() {
 		go func() {
 			healthService := newHealthService(
 				&healthConfig{
-					appSystemCode: *appSystemCode,
-					appName:       *appName,
-					port:          *port,
-					db:            mongo,
+					appSystemCode:          *appSystemCode,
+					appName:                *appName,
+					port:                   *port,
+					db:                     mongo,
 					enrichedContentFetcher: fetcher,
 					s3Uploader:             uploader,
 					queueHandler:           kafkaListener,
@@ -245,14 +242,21 @@ func main() {
 	}
 }
 func prepareIncrementalExport(logDebug *bool, consumerAddrs *string, consumerGroupID *string, topic *string, whitelist *string, exporter *content.Exporter, delayForNotification *int, locker *export.Locker, maxGoRoutines *int) *queue.KafkaListener {
-	consumerConfig := kafka.DefaultConsumerConfig()
-	consumerConfig.ChannelBufferSize = 10
+	consumerGroupConfig := kafka.DefaultConsumerConfig()
+	consumerGroupConfig.ChannelBufferSize = 10
 	if *logDebug {
 		sarama.Logger = standardlog.New(os.Stdout, "[sarama] ", standardlog.LstdFlags)
 	} else {
-		consumerConfig.Zookeeper.Logger = standardlog.New(ioutil.Discard, "", 0)
+		consumerGroupConfig.Zookeeper.Logger = standardlog.New(ioutil.Discard, "", 0)
 	}
-	messageConsumer, err := kafka.NewConsumer(*consumerAddrs, *consumerGroupID, []string{*topic}, consumerConfig)
+
+	kc := kafka.Config{
+		ZookeeperConnectionString: *consumerAddrs,
+		ConsumerGroup:             *consumerGroupID,
+		Topics:                    []string{*topic},
+		ConsumerGroupConfig:       consumerGroupConfig,
+	}
+	messageConsumer, err := kafka.NewConsumer(kc)
 	if err != nil {
 		log.WithError(err).Fatal("Cannot create Kafka client")
 	}
