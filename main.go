@@ -322,25 +322,25 @@ func serveEndpoints(appSystemCode string, appName string, port string, requestHa
 }
 
 func waitForSignal() {
-	ch := make(chan os.Signal)
+	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
 	<-ch
 }
 
-func checkMongoURLs(providedMongoUrls string) error {
-	if providedMongoUrls == "" {
+func checkMongoURLs(providedMongoURLs string) error {
+	if providedMongoURLs == "" {
 		return errors.New("MongoDB urls are missing")
 	}
 
-	mongoUrls := strings.Split(providedMongoUrls, ",")
+	mongoURLs := strings.Split(providedMongoURLs, ",")
 
-	for _, mongoUrl := range mongoUrls {
-		host, port, err := net.SplitHostPort(mongoUrl)
+	for _, mongoURL := range mongoURLs {
+		host, port, err := net.SplitHostPort(mongoURL)
 		if err != nil {
-			return fmt.Errorf("Cannot split MongoDB URL: %s into host and port. Error is: %s", mongoUrl, err.Error())
+			return fmt.Errorf("cannot split MongoDB URL: %s into host and port. Error is: %s", mongoURL, err.Error())
 		}
 		if host == "" || port == "" {
-			return fmt.Errorf("One of the MongoDB URLs is incomplete: %s. It should have host and port.", mongoUrl)
+			return fmt.Errorf("one of the MongoDB URLs is incomplete: %s. It should have host and port", mongoURL)
 		}
 	}
 
